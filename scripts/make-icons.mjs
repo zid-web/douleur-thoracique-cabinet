@@ -3,7 +3,9 @@
  * externe : rastérisation maison en suréchantillonnage ×4 puis encodage PNG
  * via `zlib`. Relancer avec `npm run icons` après toute retouche du motif.
  *
- * Motif : cœur rouge sur fond ardoise, traversé par un tracé ECG blanc.
+ * Motif : cœur rouge sur fond ardoise portant l'arbre coronaire en blanc —
+ * le même dessin que la marque de `components/brand/logo.tsx`, dont l'anneau
+ * gradué est en revanche omis : ses segments deviennent illisibles sous 192 px.
  */
 import { deflateSync } from "node:zlib"
 import { mkdirSync, writeFileSync } from "node:fs"
@@ -37,28 +39,65 @@ function distanceToSegment(px, py, ax, ay, bx, by) {
   return Math.hypot(px - cx, py - cy)
 }
 
-/** Tracé ECG en coordonnées normalisées [0,1]² — un complexe PQRST complet. */
-const ECG_POINTS = [
-  [0.04, 0.5],
-  [0.26, 0.5],
-  [0.32, 0.44],
-  [0.38, 0.5],
-  [0.44, 0.5],
-  [0.48, 0.62],
-  [0.54, 0.16],
-  [0.6, 0.72],
-  [0.65, 0.5],
-  [0.74, 0.5],
-  [0.8, 0.38],
-  [0.86, 0.5],
-  [0.96, 0.5],
+/**
+ * Arbre coronaire, repris des courbes exactes de `components/brand/logo.tsx`.
+ *
+ * Les chemins sont exprimés dans le repère du logo (viewBox 120), puis
+ * rapportés au cœur de l'icône — qui n'occupe pas la même fraction du cadre,
+ * l'icône n'ayant pas à réserver la place de l'anneau gradué. Recopier des
+ * coordonnées à la main d'un dessin à l'autre avait aplati les angles au point
+ * que les branches se lisaient comme les membres d'un bonhomme.
+ */
+const CORONARY_CURVES = [
+  // Tronc commun
+  [[56, 42], [56, 46], [57, 50], [58, 54]],
+  // Interventriculaire antérieure — la plus longue, jusqu'à la pointe
+  [[58, 54], [56, 65], [55, 75], [57, 84]],
+  // Circonflexe — courte, vers le bord latéral gauche
+  [[58, 54], [51, 56], [45, 59], [41, 64]],
+  // Coronaire droite — contourne le bord droit vers le bas
+  [[58, 54], [69, 57], [76, 63], [78, 71]],
 ]
 
-function nearPolyline(x, y, points, halfWidth) {
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const [ax, ay] = points[i]
-    const [bx, by] = points[i + 1]
-    if (distanceToSegment(x, y, ax, ay, bx, by) <= halfWidth) return true
+/** Boîte du cœur dans le repère du logo, en fraction du viewBox. */
+const LOGO_HEART = { x0: 28 / 120, x1: 92 / 120, y0: 31 / 120, y1: 92 / 120 }
+/** Boîte du cœur implicite de l'icône, en fraction du motif. */
+const ICON_HEART = { x0: 0.09, x1: 0.91, y0: 0.22, y1: 1.0 }
+
+const SCALE_X = (ICON_HEART.x1 - ICON_HEART.x0) / (LOGO_HEART.x1 - LOGO_HEART.x0)
+const SCALE_Y = (ICON_HEART.y1 - ICON_HEART.y0) / (LOGO_HEART.y1 - LOGO_HEART.y0)
+
+function mapPoint([x, y]) {
+  return [
+    ICON_HEART.x0 + (x / 120 - LOGO_HEART.x0) * SCALE_X,
+    ICON_HEART.y0 + (y / 120 - LOGO_HEART.y0) * SCALE_Y,
+  ]
+}
+
+/** Échantillonne une Bézier cubique — la rastérisation ne connaît que des droites. */
+function sampleCubic(points, steps = 24) {
+  const [p0, p1, p2, p3] = points.map(mapPoint)
+  const out = []
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps
+    const u = 1 - t
+    out.push([
+      u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+      u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+    ])
+  }
+  return out
+}
+
+const CORONARY_BRANCHES = CORONARY_CURVES.map((curve) => sampleCubic(curve))
+
+function nearBranches(x, y, branches, halfWidth) {
+  for (const points of branches) {
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const [ax, ay] = points[i]
+      const [bx, by] = points[i + 1]
+      if (distanceToSegment(x, y, ax, ay, bx, by) <= halfWidth) return true
+    }
   }
   return false
 }
@@ -76,7 +115,7 @@ function renderIcon(size, { inset = 0, radius = 0.22 } = {}) {
   const accumulator = new Float64Array(size * size * 4)
 
   const cornerRadius = radius * hi
-  const ecgHalfWidth = 0.028
+  const arteryHalfWidth = (4.6 / 120) * SCALE_X * 0.5
   const heartScale = 0.34 // demi-largeur du cœur en fraction du cadre
 
   for (let py = 0; py < hi; py += 1) {
@@ -103,8 +142,8 @@ function renderIcon(size, { inset = 0, radius = 0.22 } = {}) {
         color = RED
       }
 
-      // Tracé ECG par-dessus le cœur.
-      if (nearPolyline(mx + 0.5, my + 0.5, ECG_POINTS, ecgHalfWidth)) {
+      // Arbre coronaire par-dessus le cœur.
+      if (nearBranches(mx + 0.5, my + 0.5, CORONARY_BRANCHES, arteryHalfWidth)) {
         color = WHITE
       }
 
@@ -228,11 +267,15 @@ write("apple-touch-icon.png", flatten(renderIcon(180, { radius: 0 }), SLATE), 18
 
 writeFileSync(
   join(ROOT, "public", "icon.svg"),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Douleur thoracique">
-  <rect width="100" height="100" rx="22" fill="#1e293b"/>
-  <path d="M50 78C34 66 22 57 22 45a13 13 0 0 1 28-6 13 13 0 0 1 28 6c0 12-12 21-28 33Z" fill="#dc2626"/>
-  <polyline points="${ECG_POINTS.map(([x, y]) => `${(x * 100).toFixed(1)},${(y * 100).toFixed(1)}`).join(" ")}"
-    fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Filière Angor Cardiomaine">
+  <rect width="120" height="120" rx="26" fill="#1e293b"/>
+  <path d="M60,92 C55,87 28,67 28,49 C28,38 36,31 44,31 C50,31 56,34 60,40 C64,34 70,31 76,31 C84,31 92,38 92,49 C92,67 65,87 60,92 Z" fill="#dc2626"/>
+  <g stroke="#ffffff" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M56,42 C56,46 57,50 58,54"/>
+    <path d="M58,54 C56,65 55,75 57,84"/>
+    <path d="M58,54 C51,56 45,59 41,64"/>
+    <path d="M58,54 C69,57 76,63 78,71"/>
+  </g>
 </svg>
 `,
 )

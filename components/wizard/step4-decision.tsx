@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Phone,
   AlertTriangle,
@@ -21,6 +21,9 @@ import {
   Minus,
   Brain,
   Ban,
+  HeartPulse,
+  ArrowRight,
+  ClipboardList,
 } from "lucide-react"
 import type { Step3Data } from "./step3-rfcl"
 import type { SymptomType } from "./step2-symptoms"
@@ -120,6 +123,12 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
 
   const [mods, setMods] = useState<ClinicalModifiers>(initialModifiers)
   const [bayesianEvents, setBayesianEvents] = useState<UITestEvent[]>([])
+
+  // Le contexte clinique et la disponibilité des examens conditionnent le choix
+  // du premier examen : tant qu'ils ne sont pas confirmés, afficher une
+  // recommandation reviendrait à la fonder sur des valeurs par défaut que le
+  // praticien n'a pas relues.
+  const [contextValidated, setContextValidated] = useState(false)
 
   const supportsModifiers = cat === "intermediaire" || cat === "elevee"
   const recommendation = useMemo(
@@ -257,31 +266,39 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
           mods={mods}
           onChange={setMods}
           accentColor={cfg.color}
+          validated={contextValidated}
+          onValidate={() => setContextValidated(true)}
         />
       )}
 
-      {/* Pathway dynamique pour intermédiaire et élevée — quel premier examen choisir */}
-      {supportsModifiers && (
-        <PathwayBlock
-          recommendation={recommendation}
+      {/* Premier examen recommandé — débloqué une fois le contexte confirmé */}
+      {supportsModifiers &&
+        (contextValidated ? (
+          <PathwayBlock
+            recommendation={recommendation}
+            accentColor={cfg.color}
+            accentBg={cfg.bg}
+          />
+        ) : (
+          <PendingContextCard accentColor={cfg.color} />
+        ))}
+
+      {/* Probabilité post-test et indication de coronarographie — destinées au
+          cardiologue qui reçoit la demande, donc repliées par défaut. */}
+      <CardiologistSection>
+        <PostTestProbabilityModule
+          preTestProb={pct}
+          events={bayesianEvents}
+          onEventsChange={(ev) => setBayesianEvents(ev)}
+          bayesianResult={bayesianResult}
+          diagnosticGain={diagnosticGain}
+          scenario={scenario}
           accentColor={cfg.color}
-          accentBg={cfg.bg}
+          icaDecision={icaDecision}
+          symptomType={symptomType}
+          sexFeminin={rfclData.sex === "femme"}
         />
-      )}
-
-      {/* Modèle bayésien continu — probabilité post-test + décision finale (4 voies ESC 2024) */}
-      <PostTestProbabilityModule
-        preTestProb={pct}
-        events={bayesianEvents}
-        onEventsChange={(ev) => setBayesianEvents(ev)}
-        bayesianResult={bayesianResult}
-        diagnosticGain={diagnosticGain}
-        scenario={scenario}
-        accentColor={cfg.color}
-        icaDecision={icaDecision}
-        symptomType={symptomType}
-        sexFeminin={rfclData.sex === "femme"}
-      />
+      </CardiologistSection>
 
       {/* Contenu spécifique par catégorie */}
       {cat === "tres-faible" && <CategoryTresFaible />}
@@ -1833,15 +1850,28 @@ function ModifiersPanel({
   mods,
   onChange,
   accentColor,
+  validated,
+  onValidate,
 }: {
   mods: ClinicalModifiers
   onChange: (m: ClinicalModifiers) => void
   accentColor: string
+  /** Le praticien a relu le contexte et débloqué la recommandation. */
+  validated: boolean
+  onValidate: () => void
 }) {
-  const [expanded, setExpanded] = useState(true)
+  // Ouvert tant que le contexte n'est pas confirmé : c'est la première chose
+  // à remplir. Une fois validé, le panneau se referme pour laisser la place à
+  // l'examen recommandé, sans empêcher de le rouvrir pour corriger une valeur.
+  const [expanded, setExpanded] = useState(!validated)
 
   const update = <K extends keyof ClinicalModifiers>(k: K, v: ClinicalModifiers[K]) => {
     onChange({ ...mods, [k]: v })
+  }
+
+  const confirm = () => {
+    onValidate()
+    setExpanded(false)
   }
 
   // Compteur de modificateurs actifs (hors disponibilités par défaut)
@@ -1871,8 +1901,16 @@ function ModifiersPanel({
             <Settings2 className="w-4 h-4" style={{ color: accentColor }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-[#1e293b]">
+            <p className="text-sm font-bold text-[#1e293b] flex items-center gap-1.5">
               Contexte clinique &amp; disponibilité des examens
+              {/* Replié, le panneau doit encore dire s'il a été relu. */}
+              {validated && (
+                <CheckCircle
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={{ color: accentColor }}
+                  aria-label="contexte confirmé"
+                />
+              )}
             </p>
             <p className="text-xs text-[#64748b] mt-0.5 leading-relaxed">
               Personnalise la conduite à tenir selon comorbidités et logistique
@@ -1976,8 +2014,101 @@ function ModifiersPanel({
               />
             </div>
           </div>
+
+          {/* Validation — c'est ce geste qui débloque l'examen recommandé. */}
+          {validated ? (
+            <div className="flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2.5">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
+              <p className="text-xs text-[#475569] leading-relaxed">
+                Contexte confirmé — la recommandation ci-dessous se met à jour à chaque modification.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={confirm}
+              className="w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+              style={{ backgroundColor: accentColor }}
+            >
+              Valider le contexte — afficher l&apos;examen recommandé
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Remplace l'examen recommandé tant que le contexte n'a pas été confirmé.
+ * Afficher une recommandation fondée sur les valeurs par défaut du formulaire,
+ * que le praticien n'a pas relues, exposerait à orienter vers un examen que sa
+ * logistique ou les comorbidités du patient excluent.
+ */
+function PendingContextCard({ accentColor }: { accentColor: string }) {
+  return (
+    <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-white p-4">
+      <div className="flex items-start gap-3">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${accentColor}14` }}
+        >
+          <ClipboardList className="w-4 h-4" style={{ color: accentColor }} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#1e293b]">Examen recommandé — en attente</p>
+          <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
+            Renseignez le contexte clinique et la disponibilité des examens ci-dessus, puis validez.
+            Le choix du premier examen dépend de ces réponses : délai d&apos;accès au coroscanner et à
+            la coronarographie, fonction rénale, arythmie, calcifications et morphotype.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Volet réservé au cardiologue destinataire de la demande.
+ *
+ * Le médecin qui voit le patient au cabinet s'arrête à l'examen recommandé :
+ * la probabilité post-test et l'indication de coronarographie supposent des
+ * résultats d'examens dont il ne dispose pas encore. Replié par défaut pour
+ * que cette frontière soit lisible d'un coup d'œil.
+ */
+function CardiologistSection({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#f1f5f9] transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#1e293b] flex items-center justify-center flex-shrink-0">
+            <HeartPulse className="w-4 h-4 text-white" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#1e293b]">
+              Réservé au cardiologue — probabilité post-test
+            </p>
+            <p className="text-xs text-[#64748b] mt-0.5 leading-relaxed">
+              Indication de coronarographie d&apos;après les résultats des examens réalisés
+            </p>
+          </div>
+        </div>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-[#94a3b8] flex-shrink-0" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-[#94a3b8] flex-shrink-0" />
+        )}
+      </button>
+
+      {open && <div className="border-t border-[#e2e8f0] bg-white p-4">{children}</div>}
     </div>
   )
 }
@@ -2102,7 +2233,15 @@ function PathwayBlock({
   accentColor: string
   accentBg: string
 }) {
+  const [showAlternatives, setShowAlternatives] = useState(false)
+
   if (recommendation.steps.length === 0) return null
+
+  // Le praticien de cabinet a besoin d'UNE orientation, pas d'un menu : le
+  // premier rang tient déjà compte du contexte saisi juste au-dessus. Les rangs
+  // suivants restent accessibles comme solutions de repli, sans concurrencer
+  // visuellement la recommandation.
+  const [primaryStep, ...fallbackSteps] = recommendation.steps
 
   return (
     <div className="rounded-xl border border-[#e2e8f0] bg-white overflow-hidden">
@@ -2116,7 +2255,7 @@ function PathwayBlock({
             Premier examen recommandé
           </p>
           <p className="text-[10px] text-[#94a3b8]">
-            Orientation initiale à partir du RF-CL pré-test — la décision finale après résultats est plus bas
+            Orientation à prescrire aujourd&apos;hui, d&apos;après le RF-CL et le contexte saisi
           </p>
         </div>
       </div>
@@ -2136,12 +2275,37 @@ function PathwayBlock({
           </div>
         )}
 
-        {/* Steps */}
-        <div className="space-y-2.5">
-          {recommendation.steps.map((step) => (
-            <StepCard key={`${step.rank}-${step.exam}`} step={step} accentColor={accentColor} />
-          ))}
-        </div>
+        {/* Examen à prescrire */}
+        <StepCard step={primaryStep} accentColor={accentColor} />
+
+        {/* Solutions de repli — seulement si le premier examen est impossible */}
+        {fallbackSteps.length > 0 && (
+          <div className="rounded-lg border border-[#e2e8f0] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowAlternatives((v) => !v)}
+              aria-expanded={showAlternatives}
+              className="w-full px-3 py-2.5 flex items-center justify-between gap-2 bg-[#f8fafc] hover:bg-[#f1f5f9] transition-colors text-left"
+            >
+              <span className="text-xs font-semibold text-[#475569]">
+                Si cet examen n&apos;est pas réalisable — {fallbackSteps.length} solution
+                {fallbackSteps.length > 1 ? "s" : ""} de repli
+              </span>
+              {showAlternatives ? (
+                <ChevronUp className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
+              )}
+            </button>
+            {showAlternatives && (
+              <div className="p-3 space-y-2.5 border-t border-[#f1f5f9]">
+                {fallbackSteps.map((step) => (
+                  <StepCard key={`${step.rank}-${step.exam}`} step={step} accentColor={accentColor} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Contre-indications / précautions */}
         {recommendation.contraindications.length > 0 && (

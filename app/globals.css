@@ -66,3 +66,60 @@
     user-select: text;
   }
 }
+
+/* ── Animations de la page d'accueil ───────────────────────────────────────
+   Discrètes et courtes : elles donnent vie à l'arrivée sur l'application sans
+   retarder la lecture. Neutralisées si le lecteur demande moins de mouvement. */
+@keyframes logo-gauge-draw {
+  from {
+    opacity: 0;
+    transform: rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+}
+
+.logo-gauge-segment {
+  transform-origin: 60px 60px;
+  animation: logo-gauge-draw 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes logo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.logo-intro {
+  animation: logo-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes step-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.step-body {
+  animation: step-fade 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-gauge-segment,
+  .logo-intro,
+  .step-body {
+    animation: none;
+  }
+}

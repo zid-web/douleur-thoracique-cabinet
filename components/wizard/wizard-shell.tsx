@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import { BookOpen } from "lucide-react"
+import { BookOpen, ChevronLeft } from "lucide-react"
 import { Step1Triage } from "./step1-triage"
 import { Step2Symptoms, type Step2Data } from "./step2-symptoms"
 import { Step3RFCL, type Step3Data } from "./step3-rfcl"
@@ -69,14 +69,23 @@ export function WizardShell() {
       {/* Top bar */}
       <div className="bg-white border-b border-[#e2e8f0] sticky top-0 z-20 print:hidden">
         <div className="max-w-2xl mx-auto px-4 pt-2 pb-3">
-          {/* Références et mentions légales */}
-          <Link
-            href="/references/"
-            className="inline-flex items-center gap-1 text-xs text-[#64748b] hover:text-[#1e293b] mb-2 transition-colors"
-          >
-            <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-            Références & mentions
-          </Link>
+          {/* Retour à l'accueil, et accès aux sources du calcul */}
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-xs text-[#64748b] hover:text-[#1e293b] transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Accueil
+            </Link>
+            <Link
+              href="/references/"
+              className="inline-flex items-center gap-1 text-xs text-[#64748b] hover:text-[#1e293b] transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
+              Références
+            </Link>
+          </div>
           {/* Title */}
           <div className="flex items-center justify-between mb-3">
             <div>

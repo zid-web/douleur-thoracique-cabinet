@@ -48,7 +48,7 @@ export default function ReferencesPage() {
             className="mb-2 inline-flex items-center gap-1 text-xs text-[#64748b] transition-colors hover:text-[#1e293b]"
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Retour au parcours
+            Accueil
           </Link>
           <h1 className="text-sm font-bold text-[#1e293b]">Références & mentions</h1>
           <p className="text-xs text-[#64748b]">Sources des calculs, usage et confidentialité</p>
