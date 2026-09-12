@@ -374,7 +374,7 @@ function buildPrintHTML(symptomData: Step2Data, rfclData: Step3Data, bayesianDat
   <!-- Footer -->
   <div class="footer">
     <p><strong>Réf. :</strong> Winther et al. JACC 2020;76:2421–2432 · ESC Guidelines CCS 2024 (Vrints et al., Eur Heart J 2024;45:3415–3537) · ESC Guidelines ACS 2023 (Byrne et al., Eur Heart J 2023;44:3720–3826)</p>
-    <p style="margin-top:3px">Document généré par <strong>Douleur Thoracique au Cabinet</strong> — Outil d'aide à la décision clinique · Usage strictement médical</p>
+    <p style="margin-top:3px">Document généré par <strong>Parcours Douleur Thoracique</strong> — Outil d'aide à la décision clinique · Usage strictement médical</p>
   </div>
 </div>
 </body>
@@ -420,7 +420,7 @@ export function Step5Summary({ symptomData, rfclData, bayesianData, onReset }: S
       // Create a File object with a meaningful name
       const now = new Date()
       const dateStr = now.toISOString().split('T')[0]
-      const fileName = `DouleurThoracique-${dateStr}.html`
+      const fileName = `ParcoursDouleurThoracique-${dateStr}.html`
       const file = new File([blob], fileName, { type: "text/html" })
       
       // Create FormData for upload
@@ -576,7 +576,7 @@ export function Step5Summary({ symptomData, rfclData, bayesianData, onReset }: S
           <p className="text-[10px] text-[#94a3b8] leading-relaxed">
             <strong>Réf. :</strong> Winther et al. JACC 2020;76:2421–2432 · ESC Guidelines CCS 2024 · ACS 2023
           </p>
-          <p className="text-[10px] text-[#94a3b8] mt-0.5">Document généré par Douleur Thoracique au Cabinet — Usage strictement médical</p>
+          <p className="text-[10px] text-[#94a3b8] mt-0.5">Document généré par Parcours Douleur Thoracique — Usage strictement médical</p>
         </div>
       </div>
 

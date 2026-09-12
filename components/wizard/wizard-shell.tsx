@@ -80,8 +80,8 @@ export function WizardShell() {
           {/* Title */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-sm font-bold text-[#1e293b]">Douleur Thoracique au Cabinet</h1>
-              <p className="text-xs text-[#64748b]">Aide à la décision — ESC 2023/2024</p>
+              <h1 className="text-sm font-bold text-[#1e293b]">Parcours Douleur Thoracique</h1>
+              <p className="text-xs text-[#64748b]">Aide à la décision au cabinet — ESC 2023/2024</p>
             </div>
             <span className="text-xs text-[#94a3b8] font-medium">
               Étape {currentStep} / {STEPS.length}

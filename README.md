@@ -1,12 +1,12 @@
-# Douleur Thoracique au Cabinet
+# Parcours Douleur Thoracique
 
 Application autonome d'aide à la décision pour la **douleur thoracique en consultation**.
 C'est une extraction du module « Douleur thoracique au cabinet » de CoroPath : la logique
 de calcul de la probabilité clinique (**RF-CL**, **CACS-CL**) et la chaîne bayésienne y
 sont reprises **à l'identique**, sans aucune modification des coefficients ni des seuils.
 
-L'application CoroPath n'est pas modifiée : ce dépôt ne contient qu'une copie du module,
-empaquetée comme application indépendante.
+L'application CoroPath d'origine n'est pas modifiée : ce dépôt ne contient qu'une copie du
+module, empaquetée comme application indépendante.
 
 ## Ce que contient l'application
 

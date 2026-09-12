@@ -7,10 +7,12 @@ export const dynamic = "force-static"
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Douleur Thoracique au Cabinet",
-    short_name: "Douleur Thx",
+    name: "Parcours Douleur Thoracique",
+    // Nom affiché sous l'icône, tenu court pour ne pas être tronqué
+    // par les lanceurs Android et iOS.
+    short_name: "Parcours DT",
     description:
-      "Aide à la décision pour la douleur thoracique au cabinet : RF-CL, CACS-CL et chaîne bayésienne ESC 2024. Fonctionne hors ligne.",
+      "Douleur thoracique au cabinet : RF-CL, CACS-CL et chaîne bayésienne ESC 2024. Fonctionne hors ligne.",
     lang: "fr",
     dir: "ltr",
     start_url: "/",

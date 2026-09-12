@@ -3,7 +3,7 @@ import Link from "next/link"
 import { ChevronLeft, ShieldCheck, BookOpen, Calculator, WifiOff } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "Références & mentions — Douleur Thoracique au Cabinet",
+  title: "Références & mentions — Parcours Douleur Thoracique",
   description:
     "Sources bibliographiques des modèles RF-CL, CACS-CL et de la chaîne bayésienne, mentions d'usage et politique de confidentialité de l'application.",
 }
@@ -64,9 +64,9 @@ export default function ReferencesPage() {
             selon les tests non invasifs réalisés.
           </p>
           <p>
-            Les moteurs de calcul sont repris à l&apos;identique de l&apos;application CoroPath : mêmes tables,
-            mêmes coefficients, mêmes seuils de décision. Cette application n&apos;en est qu&apos;une extraction
-            autonome, centrée sur la consultation au cabinet.
+            Les moteurs de calcul sont repris à l&apos;identique de l&apos;application CoroPath d&apos;origine :
+            mêmes tables, mêmes coefficients, mêmes seuils de décision. Parcours Douleur Thoracique n&apos;en est
+            qu&apos;une extraction autonome, centrée sur la consultation au cabinet.
           </p>
         </Section>
 

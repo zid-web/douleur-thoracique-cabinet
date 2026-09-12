@@ -5,10 +5,10 @@ import { OfflineBadge } from "@/components/shell/offline-badge"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Douleur Thoracique au Cabinet — Aide à la décision",
+  title: "Parcours Douleur Thoracique — Aide à la décision au cabinet",
   description:
     "Outil d'aide à la décision pour la douleur thoracique au cabinet : triage, classification symptomatique ESC 2024, probabilité clinique RF-CL (Winther 2020), pondération CACS-CL et chaîne bayésienne séquentielle. Fonctionne hors ligne, aucune donnée patient ne quitte l'appareil.",
-  applicationName: "Douleur Thoracique",
+  applicationName: "Parcours Douleur Thoracique",
   manifest: "/manifest.webmanifest",
   keywords: [
     "douleur thoracique",
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Douleur Thx",
+    title: "Parcours DT",
   },
   formatDetection: { telephone: true },
   openGraph: {
     type: "website",
-    siteName: "Douleur Thoracique au Cabinet",
-    title: "Douleur Thoracique au Cabinet — Aide à la décision",
+    siteName: "Parcours Douleur Thoracique",
+    title: "Parcours Douleur Thoracique — Aide à la décision au cabinet",
     description:
       "Probabilité clinique RF-CL / CACS-CL et stratégie diagnostique ESC 2024, utilisable hors ligne au cabinet.",
   },
