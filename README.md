@@ -1,4 +1,4 @@
-# Parcours Douleur Thoracique
+# Filière Angor Cardiomaine
 
 Application autonome d'aide à la décision pour la **douleur thoracique en consultation**.
 C'est une extraction du module « Douleur thoracique au cabinet » de CoroPath : la logique

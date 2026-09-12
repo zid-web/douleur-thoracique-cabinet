@@ -5,10 +5,10 @@ import { OfflineBadge } from "@/components/shell/offline-badge"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Parcours Douleur Thoracique — Aide à la décision au cabinet",
+  title: "Filière Angor Cardiomaine — Douleur thoracique au cabinet",
   description:
     "Outil d'aide à la décision pour la douleur thoracique au cabinet : triage, classification symptomatique ESC 2024, probabilité clinique RF-CL (Winther 2020), pondération CACS-CL et chaîne bayésienne séquentielle. Fonctionne hors ligne, aucune donnée patient ne quitte l'appareil.",
-  applicationName: "Parcours Douleur Thoracique",
+  applicationName: "Filière Angor Cardiomaine",
   manifest: "/manifest.webmanifest",
   keywords: [
     "douleur thoracique",
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Parcours DT",
+    title: "Filière Angor",
   },
   formatDetection: { telephone: true },
   openGraph: {
     type: "website",
-    siteName: "Parcours Douleur Thoracique",
-    title: "Parcours Douleur Thoracique — Aide à la décision au cabinet",
+    siteName: "Filière Angor Cardiomaine",
+    title: "Filière Angor Cardiomaine — Douleur thoracique au cabinet",
     description:
       "Probabilité clinique RF-CL / CACS-CL et stratégie diagnostique ESC 2024, utilisable hors ligne au cabinet.",
   },

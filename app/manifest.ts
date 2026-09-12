@@ -7,10 +7,10 @@ export const dynamic = "force-static"
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Parcours Douleur Thoracique",
+    name: "Filière Angor Cardiomaine",
     // Nom affiché sous l'icône, tenu court pour ne pas être tronqué
     // par les lanceurs Android et iOS.
-    short_name: "Parcours DT",
+    short_name: "Filière Angor",
     description:
       "Douleur thoracique au cabinet : RF-CL, CACS-CL et chaîne bayésienne ESC 2024. Fonctionne hors ligne.",
     lang: "fr",

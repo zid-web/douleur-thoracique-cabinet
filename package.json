@@ -1,8 +1,8 @@
 {
-  "name": "parcours-douleur-thoracique",
+  "name": "filiere-angor-cardiomaine",
   "version": "1.0.0",
   "private": true,
-  "description": "Parcours Douleur Thoracique — aide à la décision pour la douleur thoracique au cabinet : RF-CL (Winther 2020), CACS-CL et chaîne bayésienne ESC 2024. PWA installable hors ligne.",
+  "description": "Filière Angor Cardiomaine — aide à la décision pour la douleur thoracique au cabinet : RF-CL (Winther 2020), CACS-CL et chaîne bayésienne ESC 2024. PWA installable hors ligne.",
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/build-sw.mjs",
