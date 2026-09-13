@@ -80,7 +80,7 @@ const DECISION_TEXTS: Record<
   },
   elevee: {
     decision: "Maladie coronarienne obstructive probable — appel cardiologue de garde, bilan urgent.",
-    examens: "Test d'ischémie fonctionnel (IRM de stress / scintigraphie). ECG + troponine si douleur < 24h.",
+    examens: "Test d'ischémie fonctionnel (scintigraphie myocardique ou échographie de stress). ECG + troponine si douleur < 24h.",
     suivi: "Consultation cardiologique dans les 24–48h. Hospitalisation si instabilité.",
   },
   "tres-elevee": {

@@ -71,7 +71,6 @@ export function getIntermediateSubCategory(
 export type ExamKey =
   | "ccta"
   | "cacs"
-  | "irm-stress"
   | "scinti"
   | "echo-stress"
   | "ica"
@@ -80,7 +79,6 @@ export type ExamKey =
 const EXAM_LABELS: Record<ExamKey, string> = {
   ccta: "Coroscanner (CCTA)",
   cacs: "Score calcique coronarien (CACS)",
-  "irm-stress": "IRM cardiaque de stress",
   scinti: "Scintigraphie myocardique (SPECT/PET)",
   "echo-stress": "Échographie de stress",
   ica: "Coronarographie invasive ambulatoire (coro)",
@@ -140,20 +138,34 @@ function isCCTAUsable(mods: ClinicalModifiers): boolean {
 
 /**
  * Le contraste iodé est contre-indiqué relativement en cas d'allergie iode
- * ou d'IRC sévère. Dans ces cas, l'IRM stress est privilégiée.
+ * ou d'IRC sévère. Dans ces cas, un test fonctionnel sans iode est privilégié.
  */
 function isIodineCI(mods: ClinicalModifiers): boolean {
   return mods.allergieIode || mods.irc === "severe"
 }
 
 /**
- * Choix du test fonctionnel optimal selon les comorbidités.
- * - IRM stress : si allergie iode, IRC sévère, obésité morbide
- * - Scintigraphie/PET : sinon
+ * Test fonctionnel de première intention.
+ *
+ * L'IRM de stress n'est pas réalisable dans la structure : elle est retirée de
+ * l'arbre, y compris là où elle servait d'alternative non iodée. Restent les
+ * deux tests fonctionnels de Classe I d'ESC 2024 accessibles ici. La
+ * scintigraphie tient le premier rang dans tous les cas de figure produits par
+ * l'algorithme : elle n'emploie pas d'iode — donc utilisable sur allergie et
+ * IRC sévère — et ne dépend pas de l'échogénicité du patient.
  */
-function pickFonctionnel(mods: ClinicalModifiers): ExamKey {
-  if (isIodineCI(mods) || mods.obesite) return "irm-stress"
-  return "scinti"
+const TEST_FONCTIONNEL: ExamKey = "scinti"
+
+/**
+ * Repli fonctionnel : l'échographie de stress, également Classe I, non
+ * irradiante et sans produit de contraste.
+ *
+ * Elle n'en est pas un en cas d'obésité morbide, où c'est justement la fenêtre
+ * acoustique qui fait défaut : proposer les deux examens reviendrait alors à
+ * proposer deux fois le même écueil.
+ */
+function pickFonctionnelRepli(mods: ClinicalModifiers): ExamKey | null {
+  return mods.obesite ? null : "echo-stress"
 }
 
 function delaiFromAvail(avail: Availability, fast = "Sous 7 jours", slow = "Sous 2-4 semaines"): string {
@@ -174,7 +186,7 @@ function delaiFromAvail(avail: Availability, fast = "Sous 7 jours", slow = "Sous
  *  - Probabilité 50-85% : test fonctionnel ou coro directe selon âge/comorb.
  *  - Si CCTA non disponible et probabilité ≥ 30% : coro ambulatoire (Classe IIa)
  *  - Si CCTA non interprétable (FA / calcif / obésité) : test fonctionnel d'emblée
- *  - Si contre-indication iode : IRM stress prioritaire
+ *  - Si contre-indication iode : test fonctionnel sans iode prioritaire
  *  - Sujet jeune (< 60) : préférer CCTA (faible irradiation, valeur pronostique)
  *  - Sujet âgé/fragile à forte probabilité : coro directe pertinente (Classe IIa)
  */
@@ -189,7 +201,12 @@ export function getPathwayRecommendation(
   const young = isYoung(ageRange)
   const cctaUsable = isCCTAUsable(mods)
   const iodineCI = isIodineCI(mods)
-  const fonctionnel = pickFonctionnel(mods)
+  const fonctionnel = TEST_FONCTIONNEL
+  const repliFonctionnel = pickFonctionnelRepli(mods)
+  // Libellé « A ou B » quand un repli existe, « A » seul sinon.
+  const fonctionnelChoix = repliFonctionnel
+    ? `${examLabel(fonctionnel)} ou ${examLabel(repliFonctionnel).toLowerCase()}`
+    : examLabel(fonctionnel)
 
   const steps: PathwayStep[] = []
   const flags: PathwayFlag[] = []
@@ -198,12 +215,12 @@ export function getPathwayRecommendation(
   // Contre-indications transversales
   if (mods.allergieIode) {
     contraindications.push(
-      "Allergie iode → CCTA et coronarographie nécessitent prémédication ; privilégier IRM de stress",
+      "Allergie iode → CCTA et coronarographie nécessitent prémédication ; privilégier un test fonctionnel sans iode (scintigraphie ou échographie de stress)",
     )
   }
   if (mods.irc === "severe") {
     contraindications.push(
-      "IRC sévère (DFG < 30) → éviter le contraste iodé ; IRM stress sans gadolinium privilégiée",
+      "IRC sévère (DFG < 30) → éviter le contraste iodé ; scintigraphie ou échographie de stress privilégiées",
     )
   } else if (mods.irc === "moderee") {
     contraindications.push(
@@ -222,7 +239,7 @@ export function getPathwayRecommendation(
   }
   if (mods.obesite) {
     contraindications.push(
-      "Obésité morbide (IMC > 40) → CCTA et écho de stress souvent ininterprétables ; IRM stress préférée",
+      "Obésité morbide (IMC > 40) → CCTA et écho de stress souvent ininterprétables ; scintigraphie avec correction d'atténuation préférée",
     )
   }
 
@@ -262,7 +279,7 @@ export function getPathwayRecommendation(
         type: "warning",
         title: "Si CACS positif et CCTA non disponible",
         message:
-          "Orienter vers test fonctionnel non-invasif (IRM stress en priorité si IRC/iode) ou consultation cardiologique.",
+          "Orienter vers un test fonctionnel non invasif (sans iode si IRC sévère ou allergie) ou une consultation cardiologique.",
       })
     }
     return {
@@ -282,7 +299,7 @@ export function getPathwayRecommendation(
         steps.push({
           rank: 1,
           exam: fonctionnel,
-          label: examLabel(fonctionnel),
+          label: fonctionnelChoix,
           delai: "Sous 2-4 semaines",
           rationale:
             "CCTA non interprétable (FA / calcifications / obésité) → test d'ischémie d'emblée (Classe I).",
@@ -304,11 +321,11 @@ export function getPathwayRecommendation(
         if (iodineCI) {
           steps.push({
             rank: 2,
-            exam: "irm-stress",
-            label: "IRM stress (alternative non-iodée)",
+            exam: fonctionnel,
+            label: `${examLabel(fonctionnel)} (alternative sans iode)`,
             delai: "Sous 2-4 semaines",
             rationale:
-              "Si contre-indication au contraste iodé (IRC sévère, allergie) : IRM stress en alternative.",
+              "Contre-indication au contraste iodé (IRC sévère, allergie) : test fonctionnel sans produit iodé en alternative (Classe I ESC 2024).",
             classe: "I",
           })
         }
@@ -353,7 +370,7 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: examLabel(fonctionnel),
+        label: fonctionnelChoix,
         delai: "Sous 7 jours",
         rationale:
           "CCTA non interprétable (FA / calcifications massives / obésité) → test d'ischémie d'emblée (Classe I).",
@@ -472,10 +489,10 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: examLabel(fonctionnel),
+        label: fonctionnelChoix,
         delai: "Sous 48-72h",
         rationale:
-          "Test d'ischémie de 1ère intention (Classe I). PET privilégié si disponible (haute sensibilité), IRM si IRC/iode.",
+          "Test d'ischémie de 1ère intention (Classe I). PET privilégié si disponible (haute sensibilité) ; ni l'un ni l'autre n'emploie de contraste iodé.",
         classe: "I",
       })
       if (mods.ica !== "non-dispo") {
@@ -511,7 +528,7 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: `${examLabel(fonctionnel)} ou IRM stress`,
+        label: fonctionnelChoix,
         delai: "Sous 7 jours",
         rationale:
           "Sujet jeune (< 60 ans) : test fonctionnel d'abord pour quantifier l'ischémie et guider la décision de revascularisation (réduit le risque de coro inutile).",
@@ -531,7 +548,7 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: "Test fonctionnel (IRM stress, PET ou SPECT)",
+        label: `Test fonctionnel — ${fonctionnelChoix}`,
         delai: "Sous 7 jours",
         rationale: "Test d'ischémie en 1er choix (Classe I).",
         classe: "I",

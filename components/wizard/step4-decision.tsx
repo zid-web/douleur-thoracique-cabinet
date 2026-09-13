@@ -2211,7 +2211,6 @@ function ToggleChip({
 const EXAM_ICON: Record<PathwayStep["exam"], typeof Activity> = {
   ccta: Activity,
   cacs: Sparkles,
-  "irm-stress": Activity,
   scinti: Activity,
   "echo-stress": Activity,
   ica: Stethoscope,
@@ -2450,7 +2449,7 @@ function CategoryFaible() {
             { cacs: "CACS = 0", action: "Reclasser RF-CL ≤ 5% → pas d'exploration complémentaire", color: "#15803d", bg: "#f0fdf4", border: "#86efac" },
             { cacs: "CACS 1–99", action: "Coroscanner (CCTA) à envisager (Classe IIa)", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
             { cacs: "CACS ≥ 100", action: "CCTA recommandé (Classe I) OU test d'ischémie", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
-            { cacs: "CACS ≥ 400", action: "IRM de stress ou scintigraphie myocardique (CCTA limité par calcifications)", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
+            { cacs: "CACS ≥ 400", action: "Scintigraphie myocardique ou échographie de stress (CCTA limité par calcifications)", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
           ].map((row) => (
             <div
               key={row.cacs}
