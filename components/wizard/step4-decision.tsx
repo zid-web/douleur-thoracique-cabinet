@@ -233,32 +233,56 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
 
   return (
     <div className="space-y-5">
-      {/* Category header */}
-      <div
-        className="rounded-xl border-2 p-4"
-        style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
-      >
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <div className="flex gap-1 mb-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: i < cfg.dots ? cfg.color : "#e2e8f0" }}
-                />
-              ))}
-            </div>
-            <p className="text-lg font-bold" style={{ color: cfg.color }}>{cfg.label}</p>
-            <p className="text-xs text-[#64748b] mt-0.5">
+      {/* Résultat RF-CL.
+
+          Deux formats selon ce qui suit. Quand l'étape débouche sur un examen à
+          prescrire, le score cède la vedette à cette prescription et se réduit à
+          un bandeau : il reste par ailleurs affiché en permanence dans la
+          pastille collante en haut de l'écran. Quand aucun examen n'est
+          recommandé — probabilités extrêmes — il redevient l'information
+          principale de l'étape et garde son format complet. */}
+      {supportsModifiers ? (
+        <div
+          className="rounded-lg border px-3 py-2.5 flex items-center gap-3"
+          style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
+        >
+          <span className="text-xl font-black leading-none" style={{ color: cfg.color }}>{pct}%</span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold leading-tight" style={{ color: cfg.color }}>{cfg.label}</p>
+            <p className="text-[10px] text-[#64748b] leading-tight mt-0.5">
               RF-CL {cfg.range}
               {intermediateSubLabel ? ` — sous-zone ${intermediateSubLabel}` : ""}
               {cfg.risk ? ` — Risque IDM/décès : ${cfg.risk}` : ""}
             </p>
           </div>
-          <div className="text-3xl font-black" style={{ color: cfg.color }}>{pct}%</div>
         </div>
-      </div>
+      ) : (
+        <div
+          className="rounded-xl border-2 p-4"
+          style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
+        >
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="flex gap-1 mb-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: i < cfg.dots ? cfg.color : "#e2e8f0" }}
+                  />
+                ))}
+              </div>
+              <p className="text-lg font-bold" style={{ color: cfg.color }}>{cfg.label}</p>
+              <p className="text-xs text-[#64748b] mt-0.5">
+                RF-CL {cfg.range}
+                {intermediateSubLabel ? ` — sous-zone ${intermediateSubLabel}` : ""}
+                {cfg.risk ? ` — Risque IDM/décès : ${cfg.risk}` : ""}
+              </p>
+            </div>
+            <div className="text-3xl font-black" style={{ color: cfg.color }}>{pct}%</div>
+          </div>
+        </div>
+      )}
 
       {/* Modifier panel — uniquement pour intermédiaire et élevée */}
       {supportsModifiers && (
@@ -274,11 +298,7 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
       {/* Premier examen recommandé — débloqué une fois le contexte confirmé */}
       {supportsModifiers &&
         (contextValidated ? (
-          <PathwayBlock
-            recommendation={recommendation}
-            accentColor={cfg.color}
-            accentBg={cfg.bg}
-          />
+          <PathwayBlock recommendation={recommendation} accentColor={cfg.color} />
         ) : (
           <PendingContextCard accentColor={cfg.color} />
         ))}
@@ -1886,22 +1906,22 @@ function ModifiersPanel({
     (mods.calcifMassives ? 1 : 0)
 
   return (
-    <div className="rounded-xl border-2 border-[#e2e8f0] bg-white overflow-hidden">
+    <div className="rounded-xl border border-[#e2e8f0] bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#f8fafc] transition-colors text-left"
+        className="w-full px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-[#f8fafc] transition-colors text-left"
         aria-expanded={expanded}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${accentColor}18` }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${accentColor}14` }}
           >
-            <Settings2 className="w-4 h-4" style={{ color: accentColor }} />
+            <Settings2 className="w-3.5 h-3.5" style={{ color: accentColor }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-[#1e293b] flex items-center gap-1.5">
+            <p className="text-xs font-bold text-[#334155] flex items-center gap-1.5">
               Contexte clinique &amp; disponibilité des examens
               {/* Replié, le panneau doit encore dire s'il a été relu. */}
               {validated && (
@@ -1912,7 +1932,7 @@ function ModifiersPanel({
                 />
               )}
             </p>
-            <p className="text-xs text-[#64748b] mt-0.5 leading-relaxed">
+            <p className="text-[11px] text-[#94a3b8] mt-0.5 leading-relaxed">
               Personnalise la conduite à tenir selon comorbidités et logistique
               {activeCount > 0 ? ` — ${activeCount} modificateur${activeCount > 1 ? "s" : ""} actif${activeCount > 1 ? "s" : ""}` : ""}
             </p>
@@ -2223,49 +2243,74 @@ const CLASSE_BADGE: Record<NonNullable<PathwayStep["classe"]>, { label: string; 
   IIb: { label: "Classe IIb", bg: "#e0e7ff", color: "#4338ca" },
 }
 
+/**
+ * Prescription de l'étape.
+ *
+ * C'est la seule décision que le praticien de cabinet emporte en sortant :
+ * elle est traitée comme telle — bandeau plein dans la couleur de la
+ * catégorie, nom de l'examen au plus gros corps de l'écran, délai en pastille.
+ * Tout ce qui l'entoure (score, contexte, justification, replis) est ramené à
+ * un rang secondaire pour qu'aucun de ces éléments ne lui dispute le regard.
+ */
 function PathwayBlock({
   recommendation,
   accentColor,
-  accentBg,
 }: {
   recommendation: PathwayRecommendation
   accentColor: string
-  accentBg: string
 }) {
   const [showAlternatives, setShowAlternatives] = useState(false)
 
   if (recommendation.steps.length === 0) return null
 
-  // Le praticien de cabinet a besoin d'UNE orientation, pas d'un menu : le
-  // premier rang tient déjà compte du contexte saisi juste au-dessus. Les rangs
-  // suivants restent accessibles comme solutions de repli, sans concurrencer
-  // visuellement la recommandation.
+  // Le premier rang tient déjà compte du contexte saisi juste au-dessus ; les
+  // suivants ne servent que si cet examen se révèle irréalisable.
   const [primaryStep, ...fallbackSteps] = recommendation.steps
+  const Icon = EXAM_ICON[primaryStep.exam]
+  const classe = primaryStep.classe ? CLASSE_BADGE[primaryStep.classe] : null
 
   return (
-    <div className="rounded-xl border border-[#e2e8f0] bg-white overflow-hidden">
-      <div
-        className="px-4 py-3 flex items-center gap-2 border-b border-[#f1f5f9]"
-        style={{ backgroundColor: accentBg }}
-      >
-        <Stethoscope className="w-4 h-4" style={{ color: accentColor }} />
-        <div>
-          <p className="text-sm font-semibold" style={{ color: accentColor }}>
-            Premier examen recommandé
-          </p>
-          <p className="text-[10px] text-[#94a3b8]">
-            Orientation à prescrire aujourd&apos;hui, d&apos;après le RF-CL et le contexte saisi
+    <div className="rounded-2xl overflow-hidden shadow-lg" style={{ backgroundColor: accentColor }}>
+      <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Stethoscope className="w-4 h-4 text-white flex-shrink-0" aria-hidden="true" />
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+            Examen à prescrire
           </p>
         </div>
+        {classe && (
+          <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/25 text-white flex-shrink-0">
+            {classe.label}
+          </span>
+        )}
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* Résumé */}
-        <p className="text-xs leading-relaxed text-[#475569] bg-[#f8fafc] rounded-lg px-3 py-2 border border-[#e2e8f0]">
-          {recommendation.rationaleSummary}
-        </p>
+      <div className="bg-white p-4 pt-4 space-y-3.5">
+        <div className="flex items-start gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${accentColor}16` }}
+          >
+            <Icon className="w-5 h-5" style={{ color: accentColor }} aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-bold leading-tight text-balance text-[#0f172a]">
+              {primaryStep.label}
+            </p>
+            <span
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
+              style={{ backgroundColor: `${accentColor}16` }}
+            >
+              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accentColor }} aria-hidden="true" />
+              <span className="text-xs font-bold" style={{ color: accentColor }}>
+                {primaryStep.delai}
+              </span>
+            </span>
+          </div>
+        </div>
 
-        {/* Flags / alertes */}
+        <p className="text-xs leading-relaxed text-[#475569]">{primaryStep.rationale}</p>
+
         {recommendation.flags.length > 0 && (
           <div className="space-y-2">
             {recommendation.flags.map((flag, i) => (
@@ -2274,10 +2319,23 @@ function PathwayBlock({
           </div>
         )}
 
-        {/* Examen à prescrire */}
-        <StepCard step={primaryStep} accentColor={accentColor} />
+        {recommendation.contraindications.length > 0 && (
+          <div className="rounded-lg border border-[#fcd34d] bg-[#fffbeb] p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-[#b45309]" aria-hidden="true" />
+              <p className="text-xs font-bold text-[#b45309]">Précautions liées au contexte</p>
+            </div>
+            <ul className="space-y-1.5">
+              {recommendation.contraindications.map((ci, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-[#78350f] leading-relaxed">
+                  <span className="w-1 h-1 rounded-full bg-[#b45309] flex-shrink-0 mt-1.5" />
+                  <span>{ci}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        {/* Solutions de repli — seulement si le premier examen est impossible */}
         {fallbackSteps.length > 0 && (
           <div className="rounded-lg border border-[#e2e8f0] overflow-hidden">
             <button
@@ -2306,23 +2364,11 @@ function PathwayBlock({
           </div>
         )}
 
-        {/* Contre-indications / précautions */}
-        {recommendation.contraindications.length > 0 && (
-          <div className="rounded-lg border border-[#fcd34d] bg-[#fffbeb] p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-[#b45309]" />
-              <p className="text-xs font-bold text-[#b45309]">Précautions liées au contexte</p>
-            </div>
-            <ul className="space-y-1.5">
-              {recommendation.contraindications.map((ci, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-[#78350f] leading-relaxed">
-                  <span className="w-1 h-1 rounded-full bg-[#b45309] flex-shrink-0 mt-1.5" />
-                  <span>{ci}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* Logique d'ensemble : utile à qui veut vérifier le raisonnement,
+            secondaire pour qui doit seulement prescrire. */}
+        <p className="text-[11px] leading-relaxed text-[#94a3b8] border-t border-[#f1f5f9] pt-3">
+          {recommendation.rationaleSummary}
+        </p>
       </div>
     </div>
   )
