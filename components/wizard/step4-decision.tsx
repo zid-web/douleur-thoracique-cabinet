@@ -28,6 +28,7 @@ import {
 import type { Step3Data } from "./step3-rfcl"
 import type { SymptomType } from "./step2-symptoms"
 import { AnocaIndicativePanel } from "./anoca-panel"
+import { CctaProtocolPanel } from "./ccta-protocol"
 import {
   DEFAULT_MODIFIERS,
   getPathwayRecommendation,
@@ -298,7 +299,7 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
       {/* Premier examen recommandé — débloqué une fois le contexte confirmé */}
       {supportsModifiers &&
         (contextValidated ? (
-          <PathwayBlock recommendation={recommendation} accentColor={cfg.color} />
+          <PathwayBlock recommendation={recommendation} accentColor={cfg.color} mods={mods} />
         ) : (
           <PendingContextCard accentColor={cfg.color} />
         ))}
@@ -2255,9 +2256,11 @@ const CLASSE_BADGE: Record<NonNullable<PathwayStep["classe"]>, { label: string; 
 function PathwayBlock({
   recommendation,
   accentColor,
+  mods,
 }: {
   recommendation: PathwayRecommendation
   accentColor: string
+  mods: ClinicalModifiers
 }) {
   const [showAlternatives, setShowAlternatives] = useState(false)
 
@@ -2268,6 +2271,11 @@ function PathwayBlock({
   const [primaryStep, ...fallbackSteps] = recommendation.steps
   const Icon = EXAM_ICON[primaryStep.exam]
   const classe = primaryStep.classe ? CLASSE_BADGE[primaryStep.classe] : null
+  // Le coroscanner est le seul examen dont la préparation se joue au cabinet :
+  // consignes à envoyer au patient, ordonnance de bradycardisation, mentions à
+  // porter sur la demande. Le protocole de service n'est donc proposé que là.
+  const primaryIsCcta = primaryStep.exam === "ccta"
+  const cctaInFallback = fallbackSteps.some((s) => s.exam === "ccta")
 
   return (
     <div className="rounded-2xl overflow-hidden shadow-lg" style={{ backgroundColor: accentColor }}>
@@ -2334,6 +2342,10 @@ function PathwayBlock({
               ))}
             </ul>
           </div>
+        )}
+
+        {(primaryIsCcta || cctaInFallback) && (
+          <CctaProtocolPanel mods={mods} accentColor={accentColor} asFallback={!primaryIsCcta} />
         )}
 
         {fallbackSteps.length > 0 && (

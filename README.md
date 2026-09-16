@@ -18,12 +18,20 @@ Un parcours en cinq étapes, entièrement côté client :
    modificateurs cliniques et par le score calcique via la formule **CACS-CL**.
 4. **Stratification** — conduite à tenir, sélection des examens et mise à jour bayésienne
    séquentielle de la probabilité en fonction des tests réalisés (rapports de vraisemblance
-   Knuuti 2018).
+   Knuuti 2018). Quand l'examen retenu est le coroscanner, le protocole de préparation
+   **IC-CT-01** s'affiche sous la prescription : points à porter sur la demande déduits du
+   contexte clinique saisi, protocole de service consultable à l'écran et document A4
+   imprimable (feuilles 1 à 3 pour le service, feuille 4 à remettre au patient).
 5. **Résumé** — fiche de consultation imprimable ou exportable.
 
 Les moteurs de calcul vivent dans `lib/` : `bayesian-cad.ts` (RF-CL continu, enrichissement,
 mise à jour bayésienne), `cacs-cl.ts` (formule Winther 2020), `pathway.ts` (algorithmes de
 prise en charge) et `anoca-score.ts`. Ces quatre fichiers sont repris tels quels de CoroPath.
+
+Le protocole coro-scanner est décrit une seule fois, sous forme de données, dans
+`lib/ccta-protocol.ts` ; `lib/ccta-protocol-print.ts` le met en page pour l'impression A4
+(marges 12 mm, une feuille par page) et `components/wizard/ccta-protocol.tsx` l'affiche à
+l'écran. Écran et papier ne peuvent donc pas diverger.
 
 ## PWA installable
 
