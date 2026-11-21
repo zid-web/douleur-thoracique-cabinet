@@ -1,59 +1,149 @@
-import { ArrowRight, ShieldCheck, WifiOff } from "lucide-react"
+import { Phone, ShieldCheck, WifiOff } from "lucide-react"
 import { Logo } from "@/components/brand/logo"
-import { ContactsBar } from "@/components/shell/contacts-bar"
+import { CONTACTS } from "@/components/shell/contacts-bar"
+
+/**
+ * Page d'accueil — le papier ECG comme signature.
+ *
+ * Le haut de page est une bande de papier millimétré (petits carreaux 1 mm,
+ * gros carreaux 5 mm) sur laquelle un tracé en rythme sinusal s'inscrit une
+ * seule fois au chargement. Tout le reste est sobre : un bouton pour lancer
+ * l'évaluation, puis les numéros d'appel présentés comme un répertoire.
+ */
+
+/** Un complexe PQRST, à partir de l'abscisse x0 (unités du viewBox, ligne de base y = 70). */
+function complex(x0: number): string {
+  const b = 70
+  return [
+    `L${x0 + 14},${b}`,
+    // onde P
+    `C${x0 + 18},${b - 9} ${x0 + 26},${b - 9} ${x0 + 30},${b}`,
+    `L${x0 + 38},${b}`,
+    // QRS
+    `L${x0 + 41},${b + 7}`,
+    `L${x0 + 46},${b - 52}`,
+    `L${x0 + 51},${b + 16}`,
+    `L${x0 + 54},${b}`,
+    // segment ST puis onde T
+    `L${x0 + 64},${b}`,
+    `C${x0 + 70},${b - 16} ${x0 + 84},${b - 16} ${x0 + 90},${b}`,
+  ].join(" ")
+}
+
+const BEAT = 128
+const TRACE = `M0,70 ${[0, 1, 2, 3, 4].map((i) => complex(i * BEAT)).join(" ")} L640,70`
 
 export function Landing() {
+  const [samu, ...others] = CONTACTS
+
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#f8fafc]">
-      {/* Halo d'arrière-plan : deux taches de couleur très diffuses et une
-          trame fine, pour donner de la profondeur sans charger la page. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(220,38,38,0.10),transparent)]" />
-        <div className="absolute -bottom-48 right-[-10%] h-[420px] w-[620px] rounded-full bg-[radial-gradient(closest-side,rgba(30,41,59,0.10),transparent)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.035)_1px,transparent_1px)] bg-[size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_75%)]" />
-      </div>
+    <div className="font-text min-h-screen bg-[#fffcfb] text-[#14213d]">
+      {/* En-tête : établissement */}
+      <header className="mx-auto flex w-full max-w-2xl items-center gap-3 px-5 pt-5 pb-4">
+        <Logo size={40} gauge={false} />
+        <p className="text-sm leading-snug text-[#5b6b82]">
+          UPATOU
+          <br />
+          Clinique du Pôle Santé Sud, Le Mans
+        </p>
+      </header>
 
-      <main className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-5 py-16 text-center">
-        <Logo size={104} className="logo-intro" />
+      {/* Papier ECG + titre */}
+      <section aria-labelledby="titre" className="ecg-paper border-y border-[#e89aa5]">
+        <div className="mx-auto w-full max-w-2xl px-5 pt-6 pb-8 sm:pt-10 sm:pb-12">
+          <svg
+            viewBox="0 0 640 100"
+            preserveAspectRatio="none"
+            className="h-20 w-full sm:h-24"
+            aria-hidden="true"
+          >
+            <path
+              d={TRACE}
+              pathLength={1}
+              fill="none"
+              stroke="#14213d"
+              strokeWidth={2.25}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              className="ecg-trace"
+            />
+            <circle cx="640" cy="70" r="4" fill="#c8102e" className="ecg-cursor" />
+          </svg>
 
-        <span className="mt-8 inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748b] backdrop-blur">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#dc2626]" aria-hidden="true" />
-          UPATOU · Pôle Santé Sud
-        </span>
+          <h1
+            id="titre"
+            className="font-display mt-6 text-[clamp(2.5rem,11vw,4.75rem)] font-extrabold leading-[0.92] tracking-[-0.02em]"
+          >
+            Filière Angor
+            <br />
+            Cardiomaine
+          </h1>
+        </div>
+      </section>
 
-        <h1 className="mt-5 text-balance text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">
-          Filière Angor Cardiomaine
-        </h1>
-        <p className="mt-4 max-w-md text-balance text-[15px] leading-relaxed text-[#475569]">
-          Protocole de gestion des douleurs thoraciques à l&apos;UPATOU — Clinique du Pôle Santé
-          Sud, Le Mans
+      <main className="mx-auto w-full max-w-2xl px-5 pt-7 pb-12">
+        <p className="max-w-[34ch] text-[1.0625rem] leading-relaxed text-[#3b4a63]">
+          Protocole de gestion des douleurs thoraciques à l&apos;UPATOU, Clinique du Pôle Santé Sud,
+          Le Mans.
         </p>
 
         <a
           href="/parcours/"
-          className="group mt-10 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f172a] px-7 py-4 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:bg-[#1e293b] hover:shadow-[0_14px_34px_-10px_rgba(15,23,42,0.6)] sm:w-auto"
+          className="mt-7 flex w-full items-center justify-center rounded-xl bg-[#c8102e] px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-[#a50d26] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#14213d] sm:w-auto sm:inline-flex"
         >
           Démarrer une évaluation
-          <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            aria-hidden="true"
-          />
         </a>
 
-        <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-[#64748b]">
-          <li className="inline-flex items-center gap-1.5">
-            <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
-            Fonctionne hors ligne
+        {/* Répertoire d'appel */}
+        <section aria-labelledby="appel" className="mt-12">
+          <h2 id="appel" className="text-lg font-bold">
+            Appel direct
+          </h2>
+
+          <a
+            href={`tel:${samu.tel}`}
+            aria-label={samu.aria}
+            className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-[#14213d] px-5 py-4 text-white transition-colors hover:bg-[#1f3157] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#c8102e]"
+          >
+            <span className="flex items-baseline gap-3">
+              <span className="font-display text-4xl font-extrabold leading-none">15</span>
+              <span className="text-base font-semibold">SAMU</span>
+            </span>
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#c8102e]">
+              <Phone className="h-5 w-5 fill-current" aria-hidden="true" />
+            </span>
+          </a>
+
+          <ul className="mt-3 divide-y divide-[#ecdfe1] rounded-xl border border-[#ecdfe1] bg-white">
+            {others.map((c) => (
+              <li key={c.tel}>
+                <a
+                  href={`tel:${c.tel}`}
+                  aria-label={c.aria}
+                  className="flex items-center justify-between gap-4 px-5 py-3.5 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-[#fff5f6] focus-visible:outline focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-[#c8102e]"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm text-[#5b6b82]">{c.label}</span>
+                    <span className="block text-lg font-bold tabular-nums whitespace-nowrap">{c.number}</span>
+                  </span>
+                  <Phone className="h-5 w-5 flex-shrink-0 text-[#c8102e]" aria-hidden="true" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <ul className="mt-10 space-y-1.5 text-sm text-[#5b6b82]">
+          <li className="flex items-center gap-2">
+            <WifiOff className="h-4 w-4" aria-hidden="true" />
+            Fonctionne hors ligne une fois l&apos;application ouverte.
           </li>
-          <li className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            Aucune donnée transmise
+          <li className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            Aucune donnée patient ne quitte l&apos;appareil.
           </li>
         </ul>
-
-        <div className="mt-12 w-full sm:w-[min(46rem,calc(100vw-2.5rem))]">
-          <ContactsBar />
-        </div>
       </main>
     </div>
   )

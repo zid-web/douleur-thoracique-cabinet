@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react"
  * Numéros utiles (bandeau inspiré de CoroPath / cardiomaine-coronaire).
  * Chaque entrée est un lien `tel:` : un toucher lance l'appel sur téléphone.
  */
-const CONTACTS: {
+export const CONTACTS: {
   label: string
   short: string
   number: string

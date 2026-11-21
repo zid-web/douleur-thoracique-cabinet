@@ -2,6 +2,11 @@ import type { Metadata, Viewport } from "next"
 import { ServiceWorkerRegistrar } from "@/components/shell/service-worker-registrar"
 import { InstallPrompt } from "@/components/shell/install-prompt"
 import { OfflineBadge } from "@/components/shell/offline-badge"
+// Polices de la page d'accueil, intégrées au site (pas d'appel réseau, donc
+// disponibles hors ligne) : Archivo à chasse variable pour le titre, Public
+// Sans pour le texte.
+import "@fontsource-variable/archivo/wdth.css"
+import "@fontsource-variable/public-sans/wght.css"
 import "./globals.css"
 
 export const metadata: Metadata = {
