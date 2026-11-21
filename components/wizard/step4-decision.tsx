@@ -130,14 +130,25 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
   const [bayesianEvents, setBayesianEvents] = useState<UITestEvent[]>([])
 
   const supportsModifiers = cat === "intermediaire" || cat === "elevee"
-  // Catégorie avant score calcique : c'est elle qui fait proposer le CACS.
-  const preCacsCategory = getFinalCategory(
-    applyModifiersExact(rfclData.baseRFCL, { ...rfclData.modifiers, cacs: "unknown" }),
-  )
   const recommendation = useMemo(
     () => getPathwayRecommendation(cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs),
     [cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs],
   )
+  // La saisie du résultat n'est proposée que si l'examen recommandé est le score
+  // calcique. On regarde la recommandation *avant* résultat : une fois le score
+  // saisi, l'examen recommandé change (coroscanner, arrêt…) mais l'encadré reste
+  // affiché pour pouvoir corriger la valeur.
+  const cacsIsRecommendedExam = useMemo(() => {
+    const preExact = applyModifiersExact(rfclData.baseRFCL, { ...rfclData.modifiers, cacs: "unknown" })
+    const pre = getPathwayRecommendation(
+      getFinalCategory(preExact),
+      rfclData.ageRange,
+      Math.round(preExact),
+      mods,
+      "unknown",
+    )
+    return pre.steps[0]?.exam === "cacs"
+  }, [rfclData.baseRFCL, rfclData.modifiers, rfclData.ageRange, mods])
 
   // Sub-category for intermediate (15-30 vs 30-50)
   const intermediateSubLabel =
@@ -266,12 +277,6 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
         </div>
       </div>
 
-      {/* Résultat du score calcique — proposé quand la probabilité avant CACS est
-          faible (> 5–15 %), c'est-à-dire quand le CACS est l'examen recommandé. */}
-      {onCacsResult && preCacsCategory === "faible" && (
-        <CacsResultPanel rfclData={rfclData} onChange={onCacsResult} firstStep={recommendation.steps[0]} />
-      )}
-
       {/* Modifier panel — uniquement pour intermédiaire et élevée */}
       {supportsModifiers && (
         <ModifiersPanel
@@ -284,6 +289,12 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
       {/* Examen recommandé + grade de recommandation */}
       {cat !== "tres-elevee" && (
         <RecommendedExamPanel recommendation={recommendation} accentColor={cfg.color} />
+      )}
+
+      {/* Résultat du score calcique — juste sous l'examen recommandé, et
+          seulement quand cet examen est le score calcique. */}
+      {onCacsResult && cacsIsRecommendedExam && (
+        <CacsResultPanel rfclData={rfclData} onChange={onCacsResult} firstStep={recommendation.steps[0]} />
       )}
 
       {/* Modèle bayésien continu — probabilité post-test + décision finale (4 voies ESC 2024) */}
