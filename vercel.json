@@ -6,17 +6,71 @@
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/sw-retire.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
       ]
     },
     {
       "source": "/manifest.webmanifest",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     },
     {
       "source": "/_next/static/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path((?!sw\\.js$).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "douleur-thoracique-cabinet.vercel.app"
+        }
+      ],
+      "destination": "https://filiere-angor-cardiomaine.vercel.app/:path",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/sw.js",
+      "has": [
+        {
+          "type": "host",
+          "value": "douleur-thoracique-cabinet.vercel.app"
+        }
+      ],
+      "destination": "/sw-retire.js"
     }
   ]
 }
