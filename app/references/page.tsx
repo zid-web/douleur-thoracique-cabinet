@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { ChevronLeft, ShieldCheck, BookOpen, Calculator, WifiOff } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -43,13 +42,13 @@ export default function ReferencesPage() {
     <div className="min-h-screen bg-[#f8fafc] font-sans">
       <div className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-white print:hidden">
         <div className="mx-auto max-w-2xl px-4 pb-3 pt-2">
-          <Link
+          <a
             href="/"
             className="mb-2 inline-flex items-center gap-1 text-xs text-[#64748b] transition-colors hover:text-[#1e293b]"
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
             Accueil
-          </Link>
+          </a>
           <h1 className="text-sm font-bold text-[#1e293b]">Références & mentions</h1>
           <p className="text-xs text-[#64748b]">Sources des calculs, usage et confidentialité</p>
         </div>
