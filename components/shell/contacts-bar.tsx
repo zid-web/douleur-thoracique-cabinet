@@ -2,7 +2,7 @@ import { Ambulance, HeartPulse, Phone, Activity, Building2 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 /**
- * Numéros utiles, repris du bandeau de CoroPath (cardiomaine-coronaire).
+ * Numéros utiles (bandeau inspiré de CoroPath / cardiomaine-coronaire).
  * Chaque entrée est un lien `tel:` : un toucher lance l'appel sur téléphone.
  */
 const CONTACTS: {
@@ -34,17 +34,17 @@ const CONTACTS: {
   {
     label: "Cardiologie interventionnelle",
     short: "Cardio interv.",
-    number: "02 43 50 50 50",
-    tel: "0243505050",
-    aria: "Appeler la cardiologie interventionnelle, 02 43 50 50 50",
+    number: "02 43 78 40 21",
+    tel: "0243784021",
+    aria: "Appeler la cardiologie interventionnelle, 02 43 78 40 21",
     icon: Activity,
   },
   {
     label: "USIC / Standard",
     short: "USIC",
-    number: "02 43 78 39 39",
-    tel: "0243783939",
-    aria: "Appeler l'USIC ou le standard, 02 43 78 39 39",
+    number: "02 43 78 39 05",
+    tel: "0243783905",
+    aria: "Appeler l'USIC ou le standard, 02 43 78 39 05",
     icon: Building2,
   },
 ]
