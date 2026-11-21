@@ -40,11 +40,11 @@ const CONTACTS: {
     icon: Activity,
   },
   {
-    label: "USIC / Standard",
+    label: "USIC",
     short: "USIC",
     number: "02 43 78 39 05",
     tel: "0243783905",
-    aria: "Appeler l'USIC ou le standard, 02 43 78 39 05",
+    aria: "Appeler l'USIC, 02 43 78 39 05",
     icon: Building2,
   },
 ]
