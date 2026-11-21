@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import { Landing } from "@/components/landing/landing"
 
 export const metadata: Metadata = {
-  title: "Filière Angor Cardiomaine — Dépistage de la maladie coronarienne",
+  title: "Filière Angor Cardiomaine — Douleurs thoraciques à l'UPATOU",
   description:
-    "De la douleur thoracique à l'examen à prescrire : triage, classification ESC 2024, probabilité clinique RF-CL et CACS-CL, choix du premier examen. Utilisable hors ligne, aucune donnée ne quitte l'appareil.",
+    "Protocole de gestion des douleurs thoraciques à l'UPATOU — Clinique du Pôle Santé Sud, Le Mans. Utilisable hors ligne, aucune donnée ne quitte l'appareil.",
 }
 
 export default function HomePage() {
