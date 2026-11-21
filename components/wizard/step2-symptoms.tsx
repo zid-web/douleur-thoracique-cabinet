@@ -22,10 +22,13 @@ interface Step2Props {
   onPrev: () => void
 }
 
-function getSymptomType(a: boolean, b: boolean, c: boolean): NonNullable<SymptomType> {
+// Score de symptômes ESC 2024 (figure 4) : douleur thoracique 0–3 points (une par
+// composante) OU dyspnée d'effort comme symptôme principal = 2 points.
+// 3 pts → colonne « typique », 2 pts → « atypique », 0–1 pt → « non-angineux ».
+function getSymptomType(a: boolean, b: boolean, c: boolean, dyspnee: boolean): NonNullable<SymptomType> {
   const count = [a, b, c].filter(Boolean).length
   if (count === 3) return "typique"
-  if (count === 2) return "atypique"
+  if (count === 2 || dyspnee) return "atypique"
   if (count === 1) return "non-angineux"
   return "non-coronarien"
 }
@@ -87,7 +90,7 @@ export function Step2Symptoms({ onNext, onPrev }: Step2Props) {
   const [duration, setDuration] = useState<Duration>(null)
   const [debut, setDebut] = useState<Debut>(null)
 
-  const symptomType = asymptomatique ? "non-coronarien" : getSymptomType(componentA, componentB, componentC)
+  const symptomType = asymptomatique ? "non-coronarien" : getSymptomType(componentA, componentB, componentC, dyspnee)
   const config = SYMPTOM_TYPE_CONFIG[symptomType]
   const canProceed = asymptomatique || (duration !== null && debut !== null)
 
@@ -200,7 +203,7 @@ export function Step2Symptoms({ onNext, onPrev }: Step2Props) {
               )}
             </div>
             <p className="text-xs text-[#64748b] mt-0.5">
-              Essoufflement apparu à l'effort, remplaçant ou s'ajoutant à la douleur thoracique
+              Essoufflement aggravé par l'effort, remplaçant ou s'ajoutant à la douleur thoracique — compte pour 2 points dans le score de symptômes ESC 2024
             </p>
           </div>
         </div>
@@ -247,12 +250,12 @@ export function Step2Symptoms({ onNext, onPrev }: Step2Props) {
               </p>
               {asymptomatique && (
                 <span className="text-[10px] font-bold bg-[#7c3aed] text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
-                  Risque pré-test non applicable
+                  RF-CL non applicable — modèle SCORE2
                 </span>
               )}
             </div>
             <p className="text-xs text-[#64748b] mt-0.5">
-              Aucune douleur thoracique ni équivalent angineux — bilan cardiovasculaire de dépistage
+              Aucune douleur thoracique ni équivalent angineux — risque estimé par SCORE2 (prévention), pas par le RF-CL
             </p>
           </div>
         </div>
@@ -315,7 +318,7 @@ export function Step2Symptoms({ onNext, onPrev }: Step2Props) {
           onClick={handleNext}
           className="flex-[2] py-3 rounded-xl bg-[#1e293b] text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#334155] transition-colors"
         >
-          Suivant — Calcul RF-CL
+          {asymptomatique ? "Suivant — Prévention (SCORE2)" : "Suivant — Calcul RF-CL"}
         </button>
       </div>
     </div>

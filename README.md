@@ -21,9 +21,15 @@ Un parcours en cinq étapes, entièrement côté client :
    Knuuti 2018).
 5. **Résumé** — fiche de consultation imprimable ou exportable.
 
+Un patient **asymptomatique** sort du RF-CL à l'étape 3 et bascule vers la prévention
+(SCORE2), comme dans CoroPath.
+
 Les moteurs de calcul vivent dans `lib/` : `bayesian-cad.ts` (RF-CL continu, enrichissement,
 mise à jour bayésienne), `cacs-cl.ts` (formule Winther 2020), `pathway.ts` (algorithmes de
-prise en charge) et `anoca-score.ts`. Ces quatre fichiers sont repris tels quels de CoroPath.
+prise en charge) et `anoca-score.ts`. Ces quatre fichiers, les écrans de `components/wizard/`
+et `hooks/use-wizard-history.ts` sont repris tels quels du module « Douleur » de CoroPath
+(dépôt `v0-coronary-care-pathways-st`) ; seuls diffèrent le nom de l'application dans
+l'en-tête et la fiche, et les liens Accueil / Références.
 
 ## PWA installable
 

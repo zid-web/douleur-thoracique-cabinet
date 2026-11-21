@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
 import { BookOpen, ChevronLeft } from "lucide-react"
 import { Step1Triage } from "./step1-triage"
@@ -8,6 +8,8 @@ import { Step2Symptoms, type Step2Data } from "./step2-symptoms"
 import { Step3RFCL, type Step3Data } from "./step3-rfcl"
 import { Step4Decision, type BayesianWizardData } from "./step4-decision"
 import { Step5Summary } from "./step5-summary"
+import { Step3Asymptomatic } from "./step3-asymptomatic"
+import { useWizardHistory } from "@/hooks/use-wizard-history"
 
 const STEPS = [
   { id: 1, title: "Triage immédiat", short: "Triage" },
@@ -22,6 +24,8 @@ type WizardState = {
   symptomData: Step2Data | null
   rfclData: Step3Data | null
   bayesianData: BayesianWizardData | null
+  /** Incrémenté à chaque nouvelle évaluation pour remettre les étapes à zéro. */
+  round: number
 }
 
 export function WizardShell() {
@@ -30,20 +34,25 @@ export function WizardShell() {
     symptomData: null,
     rfclData: null,
     bayesianData: null,
+    round: 0,
   })
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [])
 
-  const goTo = (step: number) => {
-    setState((s) => ({ ...s, step }))
+  const setStep = useCallback((step: number) => setState((s) => ({ ...s, step })), [])
+  // Étapes synchronisées avec l'historique : le « retour » du téléphone
+  // ramène à l'étape précédente.
+  const { push, back, goBackTo, canGoBackTo } = useWizardHistory(setStep)
+
+  useEffect(() => {
     scrollToTop()
-  }
+  }, [state.step, scrollToTop])
 
   const reset = () => {
-    setState({ step: 1, symptomData: null, rfclData: null, bayesianData: null })
-    scrollToTop()
+    setState((s) => ({ step: 1, symptomData: null, rfclData: null, bayesianData: null, round: s.round + 1 }))
+    goBackTo(1)
   }
 
   const stepTitles: Record<number, string> = {
@@ -63,6 +72,16 @@ export function WizardShell() {
   }
 
   const currentStep = state.step
+  // Patient asymptomatique : branche prévention (SCORE2) au lieu du RF-CL,
+  // qui n'estime la probabilité pré-test que chez le symptomatique.
+  const asymptomatic = state.symptomData?.asymptomatique === true
+  const steps = asymptomatic
+    ? [...STEPS.slice(0, 2), { id: 3, title: "Prévention", short: "SCORE2" }]
+    : STEPS
+  if (asymptomatic) {
+    stepTitles[3] = "Patient asymptomatique — Modèle SCORE2 (prévention)"
+    stepSubtitles[3] = "Le RF-CL ne s'applique qu'aux patients symptomatiques"
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans">
@@ -93,7 +112,7 @@ export function WizardShell() {
               <p className="text-xs text-[#64748b]">Douleur thoracique au cabinet — ESC 2023/2024</p>
             </div>
             <span className="text-xs text-[#94a3b8] font-medium">
-              Étape {currentStep} / {STEPS.length}
+              Étape {currentStep} / {steps.length}
             </span>
           </div>
 
@@ -101,16 +120,20 @@ export function WizardShell() {
           <div className="w-full bg-[#e2e8f0] rounded-full h-1.5 mb-3">
             <div
               className="h-1.5 rounded-full bg-[#1e293b] transition-all duration-500"
-              style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
+              style={{ width: `${(currentStep / steps.length) * 100}%` }}
             />
           </div>
 
           {/* Step dots */}
           <div className="flex items-center justify-between">
-            {STEPS.map((s) => (
-              <div
+            {steps.map((s) => (
+              <button
                 key={s.id}
-                className="flex flex-col items-center gap-1"
+                type="button"
+                onClick={() => goBackTo(s.id)}
+                disabled={!canGoBackTo(s.id)}
+                aria-label={`Revenir à l'étape ${s.id} — ${s.short}`}
+                className="flex flex-col items-center gap-1 disabled:cursor-default"
               >
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
@@ -136,7 +159,7 @@ export function WizardShell() {
                 >
                   {s.short}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -168,46 +191,58 @@ export function WizardShell() {
           </p>
         </div>
 
-        {/* Step content */}
-        {currentStep === 1 && (
+        {/* Step content — les étapes visitées restent montées (masquées) pour
+            conserver les réponses quand on revient en arrière. */}
+        <div key={state.round}>
+        <div hidden={currentStep !== 1}>
           <Step1Triage
             onNext={(data) => {
-              if (!data.redFlagTriggered) goTo(2)
+              if (!data.redFlagTriggered) push(2)
             }}
           />
-        )}
+        </div>
 
-        {currentStep === 2 && (
+        <div hidden={currentStep !== 2}>
           <Step2Symptoms
-            onPrev={() => goTo(1)}
+            onPrev={back}
             onNext={(data) => {
-              setState((s) => ({ ...s, symptomData: data, step: 3 }))
-              scrollToTop()
+              setState((s) => ({ ...s, symptomData: data }))
+              push(3)
             }}
           />
+        </div>
+
+        {state.symptomData && (
+          <div hidden={currentStep !== 3 || !asymptomatic}>
+            <Step3Asymptomatic onPrev={back} onReset={reset} />
+          </div>
         )}
 
-        {currentStep === 3 && state.symptomData && (
+        {state.symptomData && (
+          <div hidden={currentStep !== 3 || asymptomatic}>
           <Step3RFCL
             symptomData={state.symptomData}
-            onPrev={() => goTo(2)}
+            onPrev={back}
             onNext={(data) => {
-              setState((s) => ({ ...s, rfclData: data, step: 4 }))
-              scrollToTop()
+              setState((s) => ({ ...s, rfclData: data }))
+              push(4)
             }}
           />
+          </div>
         )}
 
-        {currentStep === 4 && state.rfclData && state.symptomData && (
+        {state.rfclData && state.symptomData && (
+          <div hidden={currentStep !== 4}>
           <Step4Decision
             rfclData={state.rfclData}
             symptomType={state.symptomData.symptomType}
-            onPrev={() => goTo(3)}
-            onNext={() => goTo(5)}
+            onPrev={back}
+            onNext={() => push(5)}
             onBayesianChange={(data) =>
               setState((s) => ({ ...s, bayesianData: data }))
             }
           />
+          </div>
         )}
 
         {currentStep === 5 && state.symptomData && state.rfclData && (
@@ -215,9 +250,11 @@ export function WizardShell() {
             symptomData={state.symptomData}
             rfclData={state.rfclData}
             bayesianData={state.bayesianData}
+            onPrev={back}
             onReset={reset}
           />
         )}
+        </div>
       </main>
     </div>
   )

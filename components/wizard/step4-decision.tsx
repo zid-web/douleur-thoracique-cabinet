@@ -1,13 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Phone,
   AlertTriangle,
   CheckCircle,
   Clock,
   FileText,
-  Pill,
   ChevronDown,
   ChevronUp,
   Settings2,
@@ -21,9 +20,6 @@ import {
   Minus,
   Brain,
   Ban,
-  HeartPulse,
-  ArrowRight,
-  ClipboardList,
 } from "lucide-react"
 import type { Step3Data } from "./step3-rfcl"
 import type { SymptomType } from "./step2-symptoms"
@@ -31,6 +27,7 @@ import { AnocaIndicativePanel } from "./anoca-panel"
 import {
   DEFAULT_MODIFIERS,
   getPathwayRecommendation,
+  stepEvidenceLevel,
   type ClinicalModifiers,
   type IRCLevel,
   type PathwayRecommendation,
@@ -122,18 +119,17 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
   }, [rfclData.modifiers.cacs])
 
   const [mods, setMods] = useState<ClinicalModifiers>(initialModifiers)
+  // L'étape reste montée quand on revient en arrière : si le CACS change à
+  // l'étape 3, on resynchronise le pré-remplissage « calcifications massives ».
+  useEffect(() => {
+    setMods((m) => ({ ...m, calcifMassives: initialModifiers.calcifMassives }))
+  }, [initialModifiers])
   const [bayesianEvents, setBayesianEvents] = useState<UITestEvent[]>([])
-
-  // Le contexte clinique et la disponibilité des examens conditionnent le choix
-  // du premier examen : tant qu'ils ne sont pas confirmés, afficher une
-  // recommandation reviendrait à la fonder sur des valeurs par défaut que le
-  // praticien n'a pas relues.
-  const [contextValidated, setContextValidated] = useState(false)
 
   const supportsModifiers = cat === "intermediaire" || cat === "elevee"
   const recommendation = useMemo(
-    () => getPathwayRecommendation(cat, rfclData.ageRange, pct, mods),
-    [cat, rfclData.ageRange, pct, mods],
+    () => getPathwayRecommendation(cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs),
+    [cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs],
   )
 
   // Sub-category for intermediate (15-30 vs 30-50)
@@ -233,56 +229,35 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
 
   return (
     <div className="space-y-5">
-      {/* Résultat RF-CL.
-
-          Deux formats selon ce qui suit. Quand l'étape débouche sur un examen à
-          prescrire, le score cède la vedette à cette prescription et se réduit à
-          un bandeau : il reste par ailleurs affiché en permanence dans la
-          pastille collante en haut de l'écran. Quand aucun examen n'est
-          recommandé — probabilités extrêmes — il redevient l'information
-          principale de l'étape et garde son format complet. */}
-      {supportsModifiers ? (
-        <div
-          className="rounded-lg border px-3 py-2.5 flex items-center gap-3"
-          style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
-        >
-          <span className="text-xl font-black leading-none" style={{ color: cfg.color }}>{pct}%</span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold leading-tight" style={{ color: cfg.color }}>{cfg.label}</p>
-            <p className="text-[10px] text-[#64748b] leading-tight mt-0.5">
+      {/* Category header */}
+      <div
+        className="rounded-xl border-2 p-4"
+        style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
+      >
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">
+              Décision clinique — RF-CL ajusté final
+            </p>
+            <div className="flex gap-1 mb-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: i < cfg.dots ? cfg.color : "#e2e8f0" }}
+                />
+              ))}
+            </div>
+            <p className="text-lg font-bold" style={{ color: cfg.color }}>{cfg.label}</p>
+            <p className="text-xs text-[#64748b] mt-0.5">
               RF-CL {cfg.range}
               {intermediateSubLabel ? ` — sous-zone ${intermediateSubLabel}` : ""}
               {cfg.risk ? ` — Risque IDM/décès : ${cfg.risk}` : ""}
             </p>
           </div>
+          <div className="text-3xl font-black" style={{ color: cfg.color }}>{pct}%</div>
         </div>
-      ) : (
-        <div
-          className="rounded-xl border-2 p-4"
-          style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}
-        >
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <div className="flex gap-1 mb-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: i < cfg.dots ? cfg.color : "#e2e8f0" }}
-                  />
-                ))}
-              </div>
-              <p className="text-lg font-bold" style={{ color: cfg.color }}>{cfg.label}</p>
-              <p className="text-xs text-[#64748b] mt-0.5">
-                RF-CL {cfg.range}
-                {intermediateSubLabel ? ` — sous-zone ${intermediateSubLabel}` : ""}
-                {cfg.risk ? ` — Risque IDM/décès : ${cfg.risk}` : ""}
-              </p>
-            </div>
-            <div className="text-3xl font-black" style={{ color: cfg.color }}>{pct}%</div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Modifier panel — uniquement pour intermédiaire et élevée */}
       {supportsModifiers && (
@@ -290,41 +265,42 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
           mods={mods}
           onChange={setMods}
           accentColor={cfg.color}
-          validated={contextValidated}
-          onValidate={() => setContextValidated(true)}
         />
       )}
 
-      {/* Premier examen recommandé — débloqué une fois le contexte confirmé */}
-      {supportsModifiers &&
-        (contextValidated ? (
-          <PathwayBlock recommendation={recommendation} accentColor={cfg.color} />
-        ) : (
-          <PendingContextCard accentColor={cfg.color} />
-        ))}
+      {/* Examen recommandé + grade de recommandation */}
+      {cat !== "tres-elevee" && (
+        <RecommendedExamPanel recommendation={recommendation} accentColor={cfg.color} />
+      )}
 
-      {/* Probabilité post-test et indication de coronarographie — destinées au
-          cardiologue qui reçoit la demande, donc repliées par défaut. */}
-      <CardiologistSection>
-        <PostTestProbabilityModule
-          preTestProb={pct}
-          events={bayesianEvents}
-          onEventsChange={(ev) => setBayesianEvents(ev)}
-          bayesianResult={bayesianResult}
-          diagnosticGain={diagnosticGain}
-          scenario={scenario}
+      {/* Modèle bayésien continu — probabilité post-test + décision finale (4 voies ESC 2024) */}
+      <PostTestProbabilityModule
+        preTestProb={pct}
+        events={bayesianEvents}
+        onEventsChange={(ev) => setBayesianEvents(ev)}
+        bayesianResult={bayesianResult}
+        diagnosticGain={diagnosticGain}
+        scenario={scenario}
+        accentColor={cfg.color}
+        icaDecision={icaDecision}
+        symptomType={symptomType}
+        sexFeminin={rfclData.sex === "femme"}
+      />
+
+      {/* Consultation cardiologique + ordonnance */}
+      {cat !== "tres-elevee" && (
+        <ConsultationPanel
+          cat={cat}
+          recommendation={recommendation}
           accentColor={cfg.color}
+          cacsDone={rfclData.modifiers.cacs !== "unknown"}
+          events={activeEvents}
+          scenario={scenario}
+          postTestProb={finalStep.probability}
           icaDecision={icaDecision}
-          symptomType={symptomType}
-          sexFeminin={rfclData.sex === "femme"}
         />
-      </CardiologistSection>
+      )}
 
-      {/* Contenu spécifique par catégorie */}
-      {cat === "tres-faible" && <CategoryTresFaible />}
-      {cat === "faible" && <CategoryFaible />}
-      {cat === "intermediaire" && <CategoryIntermediaireExtras />}
-      {cat === "elevee" && <CategoryEleveeExtras />}
       {cat === "tres-elevee" && <CategoryTresElevee />}
 
       {/* Nav */}
@@ -480,20 +456,28 @@ function computePathwayFlags(events: UITestEvent[]): {
         if (ev.cctaParams.leftMain50) voie2Bits.push("CCTA : tronc commun ≥ 50 %")
         if (ev.cctaParams.proxLad70) voie2Bits.push("CCTA : IVA proximale ≥ 70 %")
         if (ev.cctaParams.threeVessel) voie2Bits.push("CCTA : tritronculaire ≥ 70 %")
-        // Un coroscanner positif active systématiquement le critère anatomique
-        // (Voie 2), même si aucun sous-critère spécifique n'a été détaillé.
-        if (ev.outcome === "positive" && !hasSpecificCriterion) {
-          voie2Bits.push("CCTA : positif — critère anatomique haut risque retenu")
-        }
+        // ESC 2024 : un CCTA positif SANS critère anatomique de haut risque
+        // n'active pas la Voie 2 — il appelle une imagerie fonctionnelle
+        // (signification fonctionnelle de la sténose, I, B).
+        void hasSpecificCriterion
       }
       if (ev.cctaParams.refractoryAngina) voie4Bits.push("CCTA : angor réfractaire malgré TMO")
     }
     if (ev.test === "spect" && ev.spectParams) {
+      // Les critères d'ischémie (Voie 3) ne valent que sur un test non négatif.
+      if (ev.outcome === "negative") {
+        if (ev.spectParams.refractoryAngina) voie4Bits.push("SPECT : angor réfractaire malgré TMO")
+        continue
+      }
       if (ev.spectParams.extent === "severe") voie3Bits.push("SPECT : ischémie ≥ 20 % VG (≥ 4 segments)")
       else if (ev.spectParams.extent === "moderate") voie3Bits.push("SPECT : ischémie ≥ 10 % VG (2–3 segments)")
       if (ev.spectParams.refractoryAngina) voie4Bits.push("SPECT : angor réfractaire malgré TMO")
     }
     if (ev.test === "stress-echo" && ev.stressEchoParams) {
+      if (ev.outcome === "negative") {
+        if (ev.stressEchoParams.refractoryAngina) voie4Bits.push("DSE : angor réfractaire malgré TMO")
+        continue
+      }
       if (ev.stressEchoParams.segmentsGt3) voie3Bits.push("DSE : > 3 segments hypokinétiques (≥ 4 / 16)")
       if (ev.stressEchoParams.lvDilatation) voie3Bits.push("DSE : dilatation VG induite")
       if (ev.stressEchoParams.efDrop) voie3Bits.push("DSE : chute FE ≥ 10 %")
@@ -798,7 +782,7 @@ const CCTA_CRITERIA: Array<{
   {
     key: "threeVessel",
     label: "Tritronculaire ≥ 70 %",
-    detail: "Atteinte des 3 troncs ≥ 70 % (ou FFR-CT ≤ 0,80 si disponible)",
+    detail: "Atteinte des 3 troncs ≥ 70 %",
     voie: "Voie 2",
   },
 ]
@@ -834,7 +818,7 @@ function CctaContextPanel({
               Critères anatomiques haut risque — ESC 2024 Table 14
             </p>
             <span className="text-[10px] font-semibold rounded-full bg-[#fef2f2] text-[#b91c1c] px-2 py-0.5">
-              Voie 2 — auto-active dès qu'un critère est coché, ou si le test est marqué Positif
+              Voie 2 — active dès qu'un critère de haut risque est coché
             </span>
           </div>
 
@@ -1805,7 +1789,7 @@ function EscFourPathwayPanel({
             — voie 2 ESC 2024 active.
           </>,
           <>
-            TC ≥ 50 % · IVA proximale ≥ 70 % · tritronculaire (FFR-CT ≤ 0,80).
+            TC ≥ 50 % · IVA proximale ≥ 70 % · tritronculaire ≥ 70 %.
             <span className="ml-1 italic text-[#94a3b8]">
               Cocher sur le menu CCTA ci-dessus.
             </span>
@@ -1826,7 +1810,7 @@ function EscFourPathwayPanel({
             — voie 3 ESC 2024 active.
           </>,
           <>
-            SPECT/TEP ≥ 10 % VG · DSE &gt; 3 segments / 16 · IRM stress ≥ 2 segments.
+            SPECT/TEP ≥ 10 % VG · écho de stress (DSE) &gt; 3 segments / 16.
             <span className="ml-1 italic text-[#94a3b8]">
               Cocher sur le menu SPECT ou écho de stress ci-dessus.
             </span>
@@ -1870,28 +1854,15 @@ function ModifiersPanel({
   mods,
   onChange,
   accentColor,
-  validated,
-  onValidate,
 }: {
   mods: ClinicalModifiers
   onChange: (m: ClinicalModifiers) => void
   accentColor: string
-  /** Le praticien a relu le contexte et débloqué la recommandation. */
-  validated: boolean
-  onValidate: () => void
 }) {
-  // Ouvert tant que le contexte n'est pas confirmé : c'est la première chose
-  // à remplir. Une fois validé, le panneau se referme pour laisser la place à
-  // l'examen recommandé, sans empêcher de le rouvrir pour corriger une valeur.
-  const [expanded, setExpanded] = useState(!validated)
+  const [expanded, setExpanded] = useState(false)
 
   const update = <K extends keyof ClinicalModifiers>(k: K, v: ClinicalModifiers[K]) => {
     onChange({ ...mods, [k]: v })
-  }
-
-  const confirm = () => {
-    onValidate()
-    setExpanded(false)
   }
 
   // Compteur de modificateurs actifs (hors disponibilités par défaut)
@@ -1903,36 +1874,29 @@ function ModifiersPanel({
     (mods.obesite ? 1 : 0) +
     (mods.fragilite ? 1 : 0) +
     (mods.allergieIode ? 1 : 0) +
-    (mods.calcifMassives ? 1 : 0)
+    (mods.calcifMassives ? 1 : 0) +
+    (mods.angorFaibleEffort ? 1 : 0)
 
   return (
-    <div className="rounded-xl border border-[#e2e8f0] bg-white overflow-hidden">
+    <div className="rounded-xl border-2 border-[#e2e8f0] bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-[#f8fafc] transition-colors text-left"
+        className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#f8fafc] transition-colors text-left"
         aria-expanded={expanded}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${accentColor}14` }}
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${accentColor}18` }}
           >
-            <Settings2 className="w-3.5 h-3.5" style={{ color: accentColor }} />
+            <Settings2 className="w-4 h-4" style={{ color: accentColor }} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-[#334155] flex items-center gap-1.5">
+            <p className="text-sm font-bold text-[#1e293b]">
               Contexte clinique &amp; disponibilité des examens
-              {/* Replié, le panneau doit encore dire s'il a été relu. */}
-              {validated && (
-                <CheckCircle
-                  className="w-3.5 h-3.5 flex-shrink-0"
-                  style={{ color: accentColor }}
-                  aria-label="contexte confirmé"
-                />
-              )}
             </p>
-            <p className="text-[11px] text-[#94a3b8] mt-0.5 leading-relaxed">
+            <p className="text-xs text-[#64748b] mt-0.5 leading-relaxed">
               Personnalise la conduite à tenir selon comorbidités et logistique
               {activeCount > 0 ? ` — ${activeCount} modificateur${activeCount > 1 ? "s" : ""} actif${activeCount > 1 ? "s" : ""}` : ""}
             </p>
@@ -1996,6 +1960,19 @@ function ModifiersPanel({
             />
           </div>
 
+          {/* Présentation clinique — ESC 2024, table 11 */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">
+              Présentation clinique
+            </p>
+            <ToggleChip
+              label="Symptômes de novo très évocateurs survenant à faible niveau d'effort (→ coronarographie en premier test après avis cardiologique, I, C)"
+              value={mods.angorFaibleEffort}
+              onChange={(v) => update("angorFaibleEffort", v)}
+              accentColor={accentColor}
+            />
+          </div>
+
           {/* Comorbidités */}
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">
@@ -2034,101 +2011,8 @@ function ModifiersPanel({
               />
             </div>
           </div>
-
-          {/* Validation — c'est ce geste qui débloque l'examen recommandé. */}
-          {validated ? (
-            <div className="flex items-center gap-2 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2.5">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
-              <p className="text-xs text-[#475569] leading-relaxed">
-                Contexte confirmé — la recommandation ci-dessous se met à jour à chaque modification.
-              </p>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={confirm}
-              className="w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
-              style={{ backgroundColor: accentColor }}
-            >
-              Valider le contexte — afficher l&apos;examen recommandé
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </button>
-          )}
         </div>
       )}
-    </div>
-  )
-}
-
-/**
- * Remplace l'examen recommandé tant que le contexte n'a pas été confirmé.
- * Afficher une recommandation fondée sur les valeurs par défaut du formulaire,
- * que le praticien n'a pas relues, exposerait à orienter vers un examen que sa
- * logistique ou les comorbidités du patient excluent.
- */
-function PendingContextCard({ accentColor }: { accentColor: string }) {
-  return (
-    <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-white p-4">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${accentColor}14` }}
-        >
-          <ClipboardList className="w-4 h-4" style={{ color: accentColor }} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-[#1e293b]">Examen recommandé — en attente</p>
-          <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
-            Renseignez le contexte clinique et la disponibilité des examens ci-dessus, puis validez.
-            Le choix du premier examen dépend de ces réponses : délai d&apos;accès au coroscanner et à
-            la coronarographie, fonction rénale, arythmie, calcifications et morphotype.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * Volet réservé au cardiologue destinataire de la demande.
- *
- * Le médecin qui voit le patient au cabinet s'arrête à l'examen recommandé :
- * la probabilité post-test et l'indication de coronarographie supposent des
- * résultats d'examens dont il ne dispose pas encore. Replié par défaut pour
- * que cette frontière soit lisible d'un coup d'œil.
- */
-function CardiologistSection({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#f1f5f9] transition-colors text-left"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-[#1e293b] flex items-center justify-center flex-shrink-0">
-            <HeartPulse className="w-4 h-4 text-white" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-[#1e293b]">
-              Réservé au cardiologue — probabilité post-test
-            </p>
-            <p className="text-xs text-[#64748b] mt-0.5 leading-relaxed">
-              Indication de coronarographie d&apos;après les résultats des examens réalisés
-            </p>
-          </div>
-        </div>
-        {open ? (
-          <ChevronUp className="w-4 h-4 text-[#94a3b8] flex-shrink-0" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-[#94a3b8] flex-shrink-0" />
-        )}
-      </button>
-
-      {open && <div className="border-t border-[#e2e8f0] bg-white p-4">{children}</div>}
     </div>
   )
 }
@@ -2231,342 +2115,209 @@ function ToggleChip({
 const EXAM_ICON: Record<PathwayStep["exam"], typeof Activity> = {
   ccta: Activity,
   cacs: Sparkles,
+  "irm-stress": Activity,
   scinti: Activity,
   "echo-stress": Activity,
   ica: Stethoscope,
   rassurance: CheckCircle,
 }
 
-const CLASSE_BADGE: Record<NonNullable<PathwayStep["classe"]>, { label: string; bg: string; color: string }> = {
-  I: { label: "Classe I", bg: "#dcfce7", color: "#15803d" },
-  IIa: { label: "Classe IIa", bg: "#fef3c7", color: "#b45309" },
-  IIb: { label: "Classe IIb", bg: "#e0e7ff", color: "#4338ca" },
+const CLASSE_BADGE: Record<
+  NonNullable<PathwayStep["classe"]>,
+  { label: string; bg: string; border: string; color: string }
+> = {
+  I: { label: "Classe I", bg: "#f0fdf4", border: "#86efac", color: "#15803d" },
+  IIa: { label: "Classe IIa", bg: "#fffbeb", border: "#fcd34d", color: "#b45309" },
+  IIb: { label: "Classe IIb", bg: "#eef2ff", border: "#c7d2fe", color: "#4338ca" },
 }
 
-/**
- * Prescription de l'étape.
- *
- * C'est la seule décision que le praticien de cabinet emporte en sortant :
- * elle est traitée comme telle — bandeau plein dans la couleur de la
- * catégorie, nom de l'examen au plus gros corps de l'écran, délai en pastille.
- * Tout ce qui l'entoure (score, contexte, justification, replis) est ramené à
- * un rang secondaire pour qu'aucun de ces éléments ne lui dispute le regard.
- */
-function PathwayBlock({
+function RecommendedExamPanel({
   recommendation,
   accentColor,
 }: {
   recommendation: PathwayRecommendation
   accentColor: string
 }) {
-  const [showAlternatives, setShowAlternatives] = useState(false)
-
   if (recommendation.steps.length === 0) return null
 
-  // Le premier rang tient déjà compte du contexte saisi juste au-dessus ; les
-  // suivants ne servent que si cet examen se révèle irréalisable.
-  const [primaryStep, ...fallbackSteps] = recommendation.steps
-  const Icon = EXAM_ICON[primaryStep.exam]
-  const classe = primaryStep.classe ? CLASSE_BADGE[primaryStep.classe] : null
-
   return (
-    <div className="rounded-2xl overflow-hidden shadow-lg" style={{ backgroundColor: accentColor }}>
-      <div className="px-4 py-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <Stethoscope className="w-4 h-4 text-white flex-shrink-0" aria-hidden="true" />
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white">
-            Examen à prescrire
-          </p>
-        </div>
-        {classe && (
-          <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/25 text-white flex-shrink-0">
-            {classe.label}
-          </span>
-        )}
-      </div>
-
-      <div className="bg-white p-4 pt-4 space-y-3.5">
-        <div className="flex items-start gap-3">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${accentColor}16` }}
-          >
-            <Icon className="w-5 h-5" style={{ color: accentColor }} aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-bold leading-tight text-balance text-[#0f172a]">
-              {primaryStep.label}
-            </p>
-            <span
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
-              style={{ backgroundColor: `${accentColor}16` }}
-            >
-              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accentColor }} aria-hidden="true" />
-              <span className="text-xs font-bold" style={{ color: accentColor }}>
-                {primaryStep.delai}
-              </span>
-            </span>
-          </div>
-        </div>
-
-        <p className="text-xs leading-relaxed text-[#475569]">{primaryStep.rationale}</p>
-
-        {recommendation.flags.length > 0 && (
-          <div className="space-y-2">
-            {recommendation.flags.map((flag, i) => (
-              <FlagBanner key={i} flag={flag} />
-            ))}
-          </div>
-        )}
-
-        {recommendation.contraindications.length > 0 && (
-          <div className="rounded-lg border border-[#fcd34d] bg-[#fffbeb] p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-[#b45309]" aria-hidden="true" />
-              <p className="text-xs font-bold text-[#b45309]">Précautions liées au contexte</p>
-            </div>
-            <ul className="space-y-1.5">
-              {recommendation.contraindications.map((ci, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-[#78350f] leading-relaxed">
-                  <span className="w-1 h-1 rounded-full bg-[#b45309] flex-shrink-0 mt-1.5" />
-                  <span>{ci}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {fallbackSteps.length > 0 && (
-          <div className="rounded-lg border border-[#e2e8f0] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowAlternatives((v) => !v)}
-              aria-expanded={showAlternatives}
-              className="w-full px-3 py-2.5 flex items-center justify-between gap-2 bg-[#f8fafc] hover:bg-[#f1f5f9] transition-colors text-left"
-            >
-              <span className="text-xs font-semibold text-[#475569]">
-                Si cet examen n&apos;est pas réalisable — {fallbackSteps.length} solution
-                {fallbackSteps.length > 1 ? "s" : ""} de repli
-              </span>
-              {showAlternatives ? (
-                <ChevronUp className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5 text-[#94a3b8] flex-shrink-0" />
-              )}
-            </button>
-            {showAlternatives && (
-              <div className="p-3 space-y-2.5 border-t border-[#f1f5f9]">
-                {fallbackSteps.map((step) => (
-                  <StepCard key={`${step.rank}-${step.exam}`} step={step} accentColor={accentColor} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Logique d'ensemble : utile à qui veut vérifier le raisonnement,
-            secondaire pour qui doit seulement prescrire. */}
-        <p className="text-[11px] leading-relaxed text-[#94a3b8] border-t border-[#f1f5f9] pt-3">
-          {recommendation.rationaleSummary}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function StepCard({ step, accentColor }: { step: PathwayStep; accentColor: string }) {
-  const Icon = EXAM_ICON[step.exam]
-  const classe = step.classe ? CLASSE_BADGE[step.classe] : null
-
-  return (
-    <div className="rounded-lg border border-[#e2e8f0] bg-white p-3">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-          style={{ backgroundColor: accentColor }}
-        >
-          {step.rank}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 min-w-0">
-              <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accentColor }} />
-              <p className="text-sm font-semibold text-[#1e293b] leading-snug">{step.label}</p>
-            </div>
-            {classe && (
-              <span
-                className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: classe.bg, color: classe.color }}
-              >
-                {classe.label}
-              </span>
-            )}
-          </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-            <Clock className="w-3 h-3 text-[#94a3b8] flex-shrink-0" />
-            <span className="font-medium text-[#475569]">{step.delai}</span>
-          </div>
-          <p className="text-xs text-[#64748b] mt-2 leading-relaxed">{step.rationale}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function FlagBanner({ flag }: { flag: PathwayRecommendation["flags"][number] }) {
-  const styles = {
-    info: { bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
-    warning: { bg: "#fffbeb", border: "#fcd34d", color: "#b45309" },
-    danger: { bg: "#fef2f2", border: "#fca5a5", color: "#b91c1c" },
-  }[flag.type]
-
-  return (
-    <div
-      className="rounded-lg border p-2.5 flex items-start gap-2"
-      style={{ backgroundColor: styles.bg, borderColor: styles.border }}
-    >
-      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: styles.color }} />
-      <div className="min-w-0">
-        <p className="text-xs font-bold" style={{ color: styles.color }}>
-          {flag.title}
-        </p>
-        <p className="text-xs text-[#475569] mt-0.5 leading-relaxed">{flag.message}</p>
-      </div>
-    </div>
-  )
-}
-
-// ── Category 1: Très faible ───────────────────────────────────────────────────
-function CategoryTresFaible() {
-  return (
-    <div className="space-y-4">
-      <Panel color="#15803d" title="Diagnostic ESC 2024" icon={<CheckCircle className="w-4 h-4" />}>
-        <p className="text-sm text-[#1e293b]">Maladie coronarienne obstructive <strong>très peu probable</strong></p>
-      </Panel>
-
-      <Panel color="#15803d" title="Conduite à tenir (Classe IIa, ESC 2024)" icon={<FileText className="w-4 h-4" />}>
-        <ul className="space-y-2 text-sm text-[#1e293b]">
-          <BulletItem>Pas d'exploration coronarienne complémentaire recommandée en première intention</BulletItem>
-          <BulletItem>Rechercher un diagnostic alternatif (musculo-squelettique, digestif, anxiété, pleuro-pulmonaire)</BulletItem>
-          <BulletItem>ECG 12 dérivations si non réalisé</BulletItem>
-          <BulletItem>Bilan biologique de base (troponine hs si doute, NFS, CRP)</BulletItem>
-        </ul>
-      </Panel>
-
-      <Panel color="#15803d" title="Score calcique à considérer si" icon={<CheckCircle className="w-4 h-4" />}>
-        <ul className="space-y-1.5 text-sm text-[#1e293b]">
-          <BulletItem>Doute diagnostique persistant malgré clinique rassurante</BulletItem>
-          <BulletItem>Patient très anxieux nécessitant reclassification formelle</BulletItem>
-        </ul>
-        <div className="mt-3 space-y-1.5">
-          <div className="flex items-start gap-2 bg-[#f0fdf4] border border-[#86efac] rounded-lg p-2.5 text-xs">
-            <span className="font-bold text-[#15803d] flex-shrink-0">CACS = 0</span>
-            <span className="text-[#166534]">Rassurance, fermeture du bilan coronarien</span>
-          </div>
-          <div className="flex items-start gap-2 bg-[#fffbeb] border border-[#fcd34d] rounded-lg p-2.5 text-xs">
-            <span className="font-bold text-[#d97706] flex-shrink-0">CACS {">"} 0</span>
-            <span className="text-[#78350f]">Réévaluation clinique et cardiologique</span>
-          </div>
-        </div>
-      </Panel>
-
-      <Panel color="#15803d" title="Organisation du suivi" icon={<Clock className="w-4 h-4" />}>
-        <div className="space-y-2 text-sm">
-          <InfoRow label="Consultation cardiologique" value="Non urgente — programmée si symptômes persistants > 4 semaines" />
-          <InfoRow label="Suivi médecin traitant" value="À 4–8 semaines ou si aggravation" />
-        </div>
-      </Panel>
-    </div>
-  )
-}
-
-// ── Category 2: Faible ────────────────────────────────────────────────────────
-function CategoryFaible() {
-  return (
-    <div className="space-y-4">
-      <Panel color="#16a34a" title="Diagnostic ESC 2024" icon={<CheckCircle className="w-4 h-4" />}>
-        <p className="text-sm text-[#1e293b]">Maladie coronarienne obstructive <strong>peu probable mais non exclue</strong></p>
-      </Panel>
-
-      <Panel color="#16a34a" title="Stratégie de reclassification (Classe I — ESC 2024)" icon={<FileText className="w-4 h-4" />}>
-        <p className="text-sm font-semibold text-[#15803d] mb-3">Score calcique coronarien (CACS) en première intention</p>
-        <div className="space-y-2">
-          {[
-            { cacs: "CACS = 0", action: "Reclasser RF-CL ≤ 5% → pas d'exploration complémentaire", color: "#15803d", bg: "#f0fdf4", border: "#86efac" },
-            { cacs: "CACS 1–99", action: "Coroscanner (CCTA) à envisager (Classe IIa)", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
-            { cacs: "CACS ≥ 100", action: "CCTA recommandé (Classe I) OU test d'ischémie", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
-            { cacs: "CACS ≥ 400", action: "Scintigraphie myocardique ou échographie de stress (CCTA limité par calcifications)", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
-          ].map((row) => (
+    <Panel color={accentColor} title="Examen recommandé" icon={<Stethoscope className="w-4 h-4" />}>
+      <div className="space-y-2">
+        {recommendation.steps.map((step) => {
+          const Icon = EXAM_ICON[step.exam]
+          const classe = step.classe ? CLASSE_BADGE[step.classe] : null
+          return (
             <div
-              key={row.cacs}
-              className="flex items-start gap-3 rounded-lg border p-2.5"
-              style={{ borderColor: row.border, backgroundColor: row.bg }}
+              key={`${step.rank}-${step.exam}`}
+              className="flex items-center justify-between gap-3 rounded-lg border p-2.5"
+              style={{ borderColor: classe?.border ?? "#e2e8f0", backgroundColor: classe?.bg ?? "#ffffff" }}
             >
-              <span className="text-xs font-bold flex-shrink-0 mt-0.5" style={{ color: row.color }}>{row.cacs}</span>
-              <span className="text-xs text-[#1e293b]">{row.action}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Icon className="w-4 h-4 flex-shrink-0" style={{ color: classe?.color ?? accentColor }} />
+                <span className="text-sm font-semibold text-[#1e293b] leading-snug">{step.label}</span>
+              </div>
+              {classe && (
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0 text-white"
+                  style={{ backgroundColor: classe.color }}
+                >
+                  {classe.label}
+                  {stepEvidenceLevel(step) ? ` · ${stepEvidenceLevel(step)}` : ""}
+                </span>
+              )}
             </div>
-          ))}
-        </div>
-      </Panel>
-
-      <Panel color="#16a34a" title="Consultation cardiologique" icon={<Clock className="w-4 h-4" />}>
-        <div className="space-y-2 text-sm">
-          <AlertRow type="urgent">Dans les 7 jours si douleur récurrente / aggravation / CACS {">"} 0</AlertRow>
-          <InfoRow label="Sinon" value="Consultation programmée dans les 4 semaines" />
-          <InfoRow label="Ordonnance à rédiger" value="CACS (scanner thoracique non injecté faible dose)" />
-        </div>
-      </Panel>
-    </div>
+          )
+        })}
+      </div>
+    </Panel>
   )
 }
 
-// ── Category 3: Intermédiaire — extras (alertes urgences + médicaments) ──────
-function CategoryIntermediaireExtras() {
-  return (
-    <div className="space-y-4">
-      <Panel color="#d97706" title="Mesures médicamenteuses en attente du bilan" icon={<Pill className="w-4 h-4" />}>
-        <ul className="space-y-1.5 text-sm text-[#1e293b]">
-          <BulletItem>Trinitrine spray 0.3 mg SL en réserve (si non contre-indiqué)</BulletItem>
-          <BulletItem>Aspirine 75–100 mg/j si forte suspicion et pas de CI (à discuter avec cardiologue)</BulletItem>
-          <BulletItem>Bêtabloquant ou inhibiteur calcique si angor fréquent (après avis cardiologue)</BulletItem>
-        </ul>
-      </Panel>
-    </div>
-  )
+const CONSULTATION_BY_CATEGORY: Record<
+  Exclude<Step3Data["finalCategory"], "tres-elevee">,
+  { delai: string; urgent?: string }
+> = {
+  "tres-faible": { delai: "Non urgente — si symptômes persistants > 4 semaines" },
+  faible: {
+    delai: "Programmée dans les 4 semaines",
+    urgent: "Dans les 7 jours si douleur récurrente / aggravation / CACS > 0",
+  },
+  intermediaire: { delai: "Programmée avec les résultats de l'examen recommandé" },
+  elevee: {
+    delai: "Urgente dans les 24–48 h — appel du cardiologue de garde",
+    urgent: "Douleur active ou récente (< 24 h) : ECG + troponine hs ; si anormal → APPEL DU 15",
+  },
 }
 
-// ── Category 4: Élevée — extras (alerte cardiologue + symptômes aigus) ───────
-function CategoryEleveeExtras() {
+const TEST_NAME: Record<string, string> = {
+  ccta: "CCTA",
+  spect: "scintigraphie",
+  "stress-echo": "écho de stress",
+  "stress-ecg": "ECG d'effort",
+  pet: "TEP",
+}
+const OUTCOME_SIGN: Record<string, string> = { positive: "+", negative: "−", inconclusive: "non concluant" }
+const FUNCTIONAL_EXAM = "Échographie de stress ou scintigraphie myocardique"
+
+/**
+ * Consultation & ordonnance = synthèse de « Examen recommandé » (avant tout
+ * test) et de « Probabilité post-test » (dès qu'un résultat est saisi).
+ * ESC 2024 : coronarographie si une des 4 voies est remplie ; bilan arrêté si
+ * la probabilité devient ≤ 15 % ; sinon examen de l'autre modalité
+ * (anatomique ↔ fonctionnelle) ; coronarographie si incertitude persistante.
+ */
+function ConsultationPanel({
+  cat,
+  recommendation,
+  accentColor,
+  cacsDone,
+  events,
+  scenario,
+  postTestProb,
+  icaDecision,
+}: {
+  cat: Exclude<Step3Data["finalCategory"], "tres-elevee">
+  recommendation: PathwayRecommendation
+  accentColor: string
+  cacsDone: boolean
+  events: TestEvent[]
+  scenario: BayesianScenario
+  postTestProb: number
+  icaDecision: ICADecisionResult
+}) {
+  const trinitrine = "Trinitrine spray 0,3 mg SL en réserve (si non contre-indiqué)"
+  const p = Math.round(postTestProb)
+  const done = new Set(events.map((e) => e.test))
+  const cctaDone = done.has("ccta")
+  const functionalDone = done.has("spect") || done.has("stress-echo") || done.has("pet")
+  const ica = icaDecision.icaIndicated
+
+  let basis: string
+  let delai: string
+  let urgent: string | undefined
+  const prescriptions: string[] = []
+
+  if (events.length === 0) {
+    // ── Avant tout test : on suit l'examen recommandé
+    const consult =
+      cat === "faible" && cacsDone
+        ? { ...CONSULTATION_BY_CATEGORY.faible, urgent: "Dans les 7 jours si douleur récurrente / aggravation" }
+        : CONSULTATION_BY_CATEGORY[cat]
+    basis = "Examen recommandé (aucun résultat saisi)"
+    const firstExam = recommendation.steps.find((s) => s.exam !== "rassurance")
+    delai =
+      firstExam?.exam === "ica"
+        ? "Rapide (< 7 jours) — avis cardiologique puis coronarographie"
+        : consult.delai
+    urgent = consult.urgent
+    if (firstExam) prescriptions.push(firstExam.label)
+    if (cat === "intermediaire" || cat === "elevee") prescriptions.push(trinitrine)
+    if (prescriptions.length === 0) {
+      prescriptions.push(cacsDone ? "Aucune" : "Aucune — CACS uniquement si doute persistant")
+    }
+  } else {
+    const tests = events.map((e) => `${TEST_NAME[e.test] ?? e.test} ${OUTCOME_SIGN[e.outcome]}`).join(", ")
+    basis = `Probabilité post-test ${p} % (${tests})`
+    const allInconclusive = events.every((e) => e.outcome === "inconclusive")
+
+    if (ica) {
+      // Une des 4 voies ESC 2024 est remplie
+      const voies = icaDecision.metDetails.map((d) => d.pathwayLabel.split(" — ")[0]).join(", ")
+      delai = "Rapide (< 7 jours) — orientation vers une coronarographie"
+      prescriptions.push(
+        `Coronarographie avec évaluation fonctionnelle invasive (FFR/iFR) — ${voies || "indication post-test"}`,
+      )
+      prescriptions.push(trinitrine)
+    } else if (p <= 15 && (scenario === "all-negative" || scenario === "mixed-negative")) {
+      // CAD obstructive devenue peu probable
+      delai = "Non urgente — si symptômes persistants (rechercher une ANOCA/INOCA ou une cause non coronaire)"
+      prescriptions.push(`Pas d'examen coronarien supplémentaire (probabilité ${p} %)`)
+    } else if (scenario === "discordant" || allInconclusive) {
+      // Résultats discordants ou non concluants
+      delai = "Programmée rapidement — avis cardiologique pour trancher"
+      if (!cctaDone && p <= 50) prescriptions.push("Coroscanner (CCTA) — autre modalité (I, B)")
+      else if (!functionalDone) prescriptions.push(`${FUNCTIONAL_EXAM} — autre modalité (I, B)`)
+      else prescriptions.push("Coronarographie pour confirmer ou exclure le diagnostic (incertitude persistante, I, B)")
+      prescriptions.push(trinitrine)
+    } else if (scenario === "all-positive" || scenario === "mixed-positive") {
+      // Test(s) positif(s) sans critère de haut risque
+      delai = "Programmée — avec les résultats"
+      if (cctaDone && !functionalDone) {
+        prescriptions.push(`${FUNCTIONAL_EXAM} — signification fonctionnelle de la sténose (I, B)`)
+      } else {
+        prescriptions.push("Traitement médical anti-angineux et prévention secondaire")
+        prescriptions.push("Coronarographie si angor persistant malgré le traitement (voie 4)")
+      }
+      prescriptions.push(trinitrine)
+    } else {
+      // Test(s) négatif(s) mais probabilité résiduelle > 15 %
+      delai = "Programmée — avec les résultats"
+      if (!cctaDone && p <= 50) prescriptions.push(`Coroscanner (CCTA) — probabilité résiduelle ${p} % (I, B)`)
+      else if (!functionalDone) prescriptions.push(`${FUNCTIONAL_EXAM} — probabilité résiduelle ${p} %`)
+      else prescriptions.push(`Avis cardiologique — probabilité résiduelle ${p} % après deux modalités`)
+      prescriptions.push(trinitrine)
+    }
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border-2 border-[#dc2626] bg-[#fef2f2] p-4 flex items-start gap-3">
-        <Phone className="w-5 h-5 text-[#dc2626] flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-[#dc2626]">APPEL DU CARDIOLOGUE DE GARDE</p>
-          <p className="text-xs text-[#7f1d1d] mt-1">Consultation d'urgence dans les 24–48h</p>
+    <Panel color={accentColor} title="Consultation cardiologique & ordonnance" icon={<Clock className="w-4 h-4" />}>
+      <div className="space-y-3">
+        <InfoRow label="Fondée sur" value={basis} />
+        {urgent && <AlertRow type="urgent">{urgent}</AlertRow>}
+        <InfoRow label="Consultation cardiologique" value={delai} />
+        <div className="flex flex-col sm:flex-row sm:items-start gap-1">
+          <span className="text-xs font-semibold text-[#64748b] sm:w-40 flex-shrink-0">Ordonnance :</span>
+          <ul className="space-y-1 text-sm text-[#1e293b]">
+            {prescriptions.map((pr) => (
+              <li key={pr} className="flex items-start gap-2">
+                <FileText className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-[#94a3b8]" />
+                <span>{pr}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-
-      <Panel color="#dc2626" title="Si douleur active ou récente (< 24h)" icon={<AlertTriangle className="w-4 h-4" />}>
-        <ul className="space-y-2 text-sm">
-          <BulletItem>ECG urgent + troponine hs (H0)</BulletItem>
-          <BulletItem urgent>Si troponine élevée ou ECG modifié → APPEL DU 15 — orientation SAU/USIC</BulletItem>
-          <BulletItem>Si troponine normale et ECG normal → consultation cardiologique dans les 24h</BulletItem>
-        </ul>
-      </Panel>
-
-      <Panel color="#dc2626" title="Mesures immédiates" icon={<Pill className="w-4 h-4" />}>
-        <ul className="space-y-1.5 text-sm text-[#1e293b]">
-          <BulletItem>Aspirine 250–500 mg PO (si pas de CI, allergie, anticoagulant)</BulletItem>
-          <BulletItem>Trinitrine SL 0.3 mg si PA {">"} 100 mmHg</BulletItem>
-          <BulletItem urgent>Ne pas laisser partir le patient seul</BulletItem>
-        </ul>
-        <div className="mt-3 p-2.5 rounded-lg bg-[#fef2f2] border border-[#fca5a5] text-xs">
-          <p className="font-bold text-[#dc2626] mb-1">Hospitalisation si :</p>
-          <p className="text-[#7f1d1d]">Douleur au repos persistante, instabilité hémodynamique, modifications ECG</p>
-        </div>
-      </Panel>
-    </div>
+    </Panel>
   )
 }
 
@@ -2664,18 +2415,6 @@ function Panel({
       </div>
       <div className="p-4">{children}</div>
     </div>
-  )
-}
-
-function BulletItem({ children, urgent = false }: { children: React.ReactNode; urgent?: boolean }) {
-  return (
-    <li className="flex items-start gap-2">
-      <span
-        className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2"
-        style={{ backgroundColor: urgent ? "#dc2626" : "#94a3b8" }}
-      />
-      <span className={urgent ? "font-semibold text-[#dc2626]" : ""}>{children}</span>
-    </li>
   )
 }
 
