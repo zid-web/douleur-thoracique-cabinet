@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { ArrowRight, ShieldCheck, WifiOff } from "lucide-react"
 import { Logo } from "@/components/brand/logo"
 import { ContactsBar } from "@/components/shell/contacts-bar"
@@ -30,7 +29,7 @@ export function Landing() {
           Sud, Le Mans
         </p>
 
-        <Link
+        <a
           href="/parcours/"
           className="group mt-10 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f172a] px-7 py-4 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:bg-[#1e293b] hover:shadow-[0_14px_34px_-10px_rgba(15,23,42,0.6)] sm:w-auto"
         >
@@ -39,7 +38,7 @@ export function Landing() {
             className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
             aria-hidden="true"
           />
-        </Link>
+        </a>
 
         <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-[#64748b]">
           <li className="inline-flex items-center gap-1.5">

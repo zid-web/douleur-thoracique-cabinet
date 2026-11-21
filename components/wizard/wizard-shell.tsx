@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import Link from "next/link"
 import { BookOpen, ChevronLeft } from "lucide-react"
 import { Step1Triage } from "./step1-triage"
 import { Step2Symptoms, type Step2Data } from "./step2-symptoms"
@@ -89,22 +88,24 @@ export function WizardShell() {
       {/* Top bar */}
       <div className="bg-white border-b border-[#e2e8f0] sticky top-0 z-20 print:hidden">
         <div className="max-w-2xl mx-auto px-4 pt-2 pb-3">
-          {/* Retour à l'accueil, et accès aux sources du calcul */}
+          {/* Retour à l'accueil, et accès aux sources du calcul. Liens classiques
+              (rechargement de page) plutôt que la navigation interne de Next.js :
+              ils ne dépendent ni des fichiers préchargés ni du cache de l'app. */}
           <div className="flex items-center justify-between gap-3 mb-2">
-            <Link
+            <a
               href="/"
               className="inline-flex items-center gap-1 text-xs text-[#64748b] hover:text-[#1e293b] transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
               Accueil
-            </Link>
-            <Link
+            </a>
+            <a
               href="/references/"
               className="inline-flex items-center gap-1 text-xs text-[#64748b] hover:text-[#1e293b] transition-colors"
             >
               <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
               Références
-            </Link>
+            </a>
           </div>
           {/* Title */}
           <div className="flex items-center justify-between mb-3">
