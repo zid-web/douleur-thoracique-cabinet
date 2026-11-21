@@ -13,7 +13,7 @@
  *  - Winther et al., JACC 2020;76:2421-2432 (CACS-CL)
  */
 
-import type { Step3Data } from "@/components/wizard/step3-rfcl"
+import type { CACSValue, Step3Data } from "@/components/wizard/step3-rfcl"
 
 // ── Types des modificateurs ──────────────────────────────────────────────────
 
@@ -37,6 +37,8 @@ export interface ClinicalModifiers {
   allergieIode: boolean
   /** Calcifications massives connues (CACS ≥ 400) */
   calcifMassives: boolean
+  /** Symptômes de novo très évocateurs survenant à faible niveau d'effort (ESC 2024, table 11) */
+  angorFaibleEffort: boolean
 }
 
 export const DEFAULT_MODIFIERS: ClinicalModifiers = {
@@ -48,6 +50,7 @@ export const DEFAULT_MODIFIERS: ClinicalModifiers = {
   fragilite: false,
   allergieIode: false,
   calcifMassives: false,
+  angorFaibleEffort: false,
 }
 
 // ── Sous-catégorisation de la zone intermédiaire ────────────────────────────
@@ -71,6 +74,7 @@ export function getIntermediateSubCategory(
 export type ExamKey =
   | "ccta"
   | "cacs"
+  | "irm-stress"
   | "scinti"
   | "echo-stress"
   | "ica"
@@ -79,7 +83,8 @@ export type ExamKey =
 const EXAM_LABELS: Record<ExamKey, string> = {
   ccta: "Coroscanner (CCTA)",
   cacs: "Score calcique coronarien (CACS)",
-  scinti: "Scintigraphie myocardique (SPECT/PET)",
+  "irm-stress": "IRM cardiaque de stress",
+  scinti: "Échographie de stress ou scintigraphie myocardique",
   "echo-stress": "Échographie de stress",
   ica: "Coronarographie invasive ambulatoire (coro)",
   rassurance: "Pas d'examen complémentaire",
@@ -96,6 +101,33 @@ export interface PathwayStep {
   delai: string
   rationale: string
   classe?: "I" | "IIa" | "IIb"
+  /** Niveau de preuve ESC 2024 (déduit de l'examen si absent, cf. stepEvidenceLevel) */
+  niveau?: "A" | "B" | "C"
+}
+
+/**
+ * Niveau de preuve ESC 2024 d'une étape :
+ *  - CCTA, probabilité > 5–50 % : I, A (table 8)
+ *  - imagerie fonctionnelle (écho de stress, scintigraphie) : I, B (tables 9–10, 13)
+ *  - CACS de reclassement / report des examens : IIa, B (table 3)
+ *  - coronarographie après examen non invasif non concluant / ischémie : I, B (table 13)
+ *  - coronarographie d'emblée (haut risque, symptômes à faible effort) : I, C (table 11)
+ */
+export function stepEvidenceLevel(step: PathwayStep): "A" | "B" | "C" | undefined {
+  if (step.niveau) return step.niveau
+  switch (step.exam) {
+    case "ccta":
+      return "A"
+    case "scinti":
+    case "echo-stress":
+    case "irm-stress":
+    case "cacs":
+    case "rassurance":
+    case "ica":
+      return "B"
+    default:
+      return undefined
+  }
 }
 
 export interface PathwayFlag {
@@ -132,40 +164,28 @@ function isYoung(ageRange: Step3Data["ageRange"]): boolean {
  * Le CCTA est dégradé en cas de FA, calcifications massives ou obésité morbide.
  * Dans ces cas, on bascule vers un test fonctionnel d'emblée.
  */
+// ESC 2024 (table 8) : CCTA non recommandé (III, C) en cas d'IRC sévère
+// (DFGe < 30), de calcifications coronaires étendues, de rythme rapide/irrégulier
+// ou d'obésité sévère.
 function isCCTAUsable(mods: ClinicalModifiers): boolean {
-  return !mods.fa && !mods.calcifMassives && !mods.obesite
+  return !mods.fa && !mods.calcifMassives && !mods.obesite && mods.irc !== "severe"
 }
 
 /**
  * Le contraste iodé est contre-indiqué relativement en cas d'allergie iode
- * ou d'IRC sévère. Dans ces cas, un test fonctionnel sans iode est privilégié.
+ * ou d'IRC sévère. Dans ces cas, la scintigraphie (sans iode) est privilégiée.
  */
 function isIodineCI(mods: ClinicalModifiers): boolean {
   return mods.allergieIode || mods.irc === "severe"
 }
 
 /**
- * Test fonctionnel de première intention.
- *
- * L'IRM de stress n'est pas réalisable dans la structure : elle est retirée de
- * l'arbre, y compris là où elle servait d'alternative non iodée. Restent les
- * deux tests fonctionnels de Classe I d'ESC 2024 accessibles ici. La
- * scintigraphie tient le premier rang dans tous les cas de figure produits par
- * l'algorithme : elle n'emploie pas d'iode — donc utilisable sur allergie et
- * IRC sévère — et ne dépend pas de l'échogénicité du patient.
+ * Choix du test fonctionnel. IRM de stress et FFR-CT non disponibles
+ * localement : échographie de stress ou scintigraphie myocardique, toutes deux
+ * sans contraste iodé (allergie à l'iode, IRC sévère).
  */
-const TEST_FONCTIONNEL: ExamKey = "scinti"
-
-/**
- * Repli fonctionnel : l'échographie de stress, également Classe I, non
- * irradiante et sans produit de contraste.
- *
- * Elle n'en est pas un en cas d'obésité morbide, où c'est justement la fenêtre
- * acoustique qui fait défaut : proposer les deux examens reviendrait alors à
- * proposer deux fois le même écueil.
- */
-function pickFonctionnelRepli(mods: ClinicalModifiers): ExamKey | null {
-  return mods.obesite ? null : "echo-stress"
+function pickFonctionnel(_mods: ClinicalModifiers): ExamKey {
+  return "scinti"
 }
 
 function delaiFromAvail(avail: Availability, fast = "Sous 7 jours", slow = "Sous 2-4 semaines"): string {
@@ -180,33 +200,35 @@ function delaiFromAvail(avail: Availability, fast = "Sous 7 jours", slow = "Sous
  * Génère le pathway recommandé selon ESC 2024 + ajustements pratiques.
  *
  * Principes :
- *  - Probabilité ≤ 15% : CACS de reclassification (Classe I)
+ *  - Probabilité 5-15% : CACS de reclassification (Classe IIa)
  *  - Probabilité 15-30% (intermédiaire-bas) : CCTA différé acceptable
  *  - Probabilité 30-50% (intermédiaire-haut) : CCTA RAPIDE prioritaire
  *  - Probabilité 50-85% : test fonctionnel ou coro directe selon âge/comorb.
- *  - Si CCTA non disponible et probabilité ≥ 30% : coro ambulatoire (Classe IIa)
+ *  - Si CCTA non disponible ou inadapté : imagerie fonctionnelle (scintigraphie SPECT/TEP, écho de stress)
+ *  - Coronarographie d'emblée : réservée aux probabilités très élevées (> 85 %) avec symptômes
+ *    réfractaires / angor à faible niveau d'effort / risque d'événement élevé ; sinon après un
+ *    examen non invasif (ischémie modérée à sévère, CCTA à haut risque, résultat non concluant)
  *  - Si CCTA non interprétable (FA / calcif / obésité) : test fonctionnel d'emblée
- *  - Si contre-indication iode : test fonctionnel sans iode prioritaire
+ *  - Si contre-indication iode : scintigraphie (pas d'IRM de stress disponible)
  *  - Sujet jeune (< 60) : préférer CCTA (faible irradiation, valeur pronostique)
- *  - Sujet âgé/fragile à forte probabilité : coro directe pertinente (Classe IIa)
+ *  - CACS déjà réalisé (étape 3) : la catégorie est déjà le CACS-CL, on ne
+ *    re-prescrit pas de CACS. Si le CACS-CL reste > 5% → CCTA (Classe I,
+ *    ESC 2024 : probabilité faible à modérée > 5–50%).
  */
 export function getPathwayRecommendation(
   category: Step3Data["finalCategory"],
   ageRange: Step3Data["ageRange"],
   pct: number,
   mods: ClinicalModifiers,
+  cacs: CACSValue = "unknown",
 ): PathwayRecommendation {
+  const cacsDone = cacs !== "unknown"
   const subCat = getIntermediateSubCategory(category, pct)
   const elderlyFragile = isElderlyOrFragile(ageRange, mods)
   const young = isYoung(ageRange)
   const cctaUsable = isCCTAUsable(mods)
   const iodineCI = isIodineCI(mods)
-  const fonctionnel = TEST_FONCTIONNEL
-  const repliFonctionnel = pickFonctionnelRepli(mods)
-  // Libellé « A ou B » quand un repli existe, « A » seul sinon.
-  const fonctionnelChoix = repliFonctionnel
-    ? `${examLabel(fonctionnel)} ou ${examLabel(repliFonctionnel).toLowerCase()}`
-    : examLabel(fonctionnel)
+  const fonctionnel = pickFonctionnel(mods)
 
   const steps: PathwayStep[] = []
   const flags: PathwayFlag[] = []
@@ -215,12 +237,12 @@ export function getPathwayRecommendation(
   // Contre-indications transversales
   if (mods.allergieIode) {
     contraindications.push(
-      "Allergie iode → CCTA et coronarographie nécessitent prémédication ; privilégier un test fonctionnel sans iode (scintigraphie ou échographie de stress)",
+      "Allergie iode → CCTA et coronarographie nécessitent prémédication ; privilégier l'échographie de stress ou la scintigraphie (sans iode)",
     )
   }
   if (mods.irc === "severe") {
     contraindications.push(
-      "IRC sévère (DFG < 30) → éviter le contraste iodé ; scintigraphie ou échographie de stress privilégiées",
+      "IRC sévère (DFG < 30) → éviter le contraste iodé ; échographie de stress ou scintigraphie privilégiée",
     )
   } else if (mods.irc === "moderee") {
     contraindications.push(
@@ -239,8 +261,30 @@ export function getPathwayRecommendation(
   }
   if (mods.obesite) {
     contraindications.push(
-      "Obésité morbide (IMC > 40) → CCTA et écho de stress souvent ininterprétables ; scintigraphie avec correction d'atténuation préférée",
+      "Obésité morbide (IMC > 40) → CCTA et écho de stress souvent ininterprétables ; scintigraphie (TEP de préférence) préférée",
     )
+  }
+
+  // ── ESC 2024 (table 11) : symptômes de novo très évocateurs à faible niveau
+  //    d'effort → coronarographie en premier test, après avis cardiologique (I, C)
+  if (mods.angorFaibleEffort && (category === "intermediaire" || category === "elevee")) {
+    steps.push({
+      rank: 1,
+      exam: "ica",
+      label: "Coronarographie en premier test, après avis cardiologique",
+      delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
+      rationale:
+        "ESC 2024 (table 11) : symptômes de novo très évocateurs survenant à faible niveau d'effort → coronarographie à visée de revascularisation en premier test diagnostique, après évaluation clinique par un cardiologue (I, C).",
+      classe: "I",
+      niveau: "C",
+    })
+    return {
+      steps,
+      flags,
+      contraindications,
+      rationaleSummary:
+        "Symptômes de novo très évocateurs à faible niveau d'effort → coronarographie en premier test après avis cardiologique (I, C — ESC 2024).",
+    }
   }
 
   // ── Catégorie : très faible (≤ 5%) ──────────────────────────────────────
@@ -258,28 +302,69 @@ export function getPathwayRecommendation(
       steps,
       flags,
       contraindications,
-      rationaleSummary:
-        "Probabilité ≤ 5% → diagnostic alternatif prioritaire. CACS uniquement si doute persistant ou anxiété majeure.",
+      rationaleSummary: cacsDone
+        ? "CACS-CL ≤ 5% (CACS déjà intégré) → report des examens (Classe IIa), diagnostic alternatif prioritaire."
+        : "Probabilité ≤ 5% → diagnostic alternatif prioritaire. CACS uniquement si doute persistant ou anxiété majeure.",
     }
   }
 
   // ── Catégorie : faible (5-15%) ──────────────────────────────────────────
   if (category === "faible") {
+    if (cacsDone) {
+      // Le CACS a déjà reclassé la probabilité (CACS-CL) et elle reste > 5% :
+      // on ne répète pas le CACS, on passe à l'imagerie (ESC 2024, Classe I
+      // pour CCTA si probabilité > 5–50% ; ACC/AHA 2021 : CCTA ou imagerie
+      // de stress si CACS > 0).
+      if (cctaUsable && !iodineCI && mods.ccta !== "non-dispo") {
+        steps.push({
+          rank: 1,
+          exam: "ccta",
+          label: "Coroscanner (CCTA)",
+          delai: delaiFromAvail(mods.ccta, "Sous 4 semaines", "Sous 4-6 semaines"),
+          rationale:
+            "CACS déjà réalisé et CACS-CL toujours > 5% : CCTA pour exclure une sténose obstructive (Classe I, ESC 2024).",
+          classe: "I",
+        })
+      } else {
+        steps.push({
+          rank: 1,
+          exam: fonctionnel,
+          label: examLabel(fonctionnel),
+          delai: "Sous 4 semaines",
+          rationale:
+            "CACS déjà réalisé ; CCTA non disponible, non interprétable ou contre-indiqué → imagerie fonctionnelle de stress.",
+          classe: "I",
+        })
+      }
+      flags.push({
+        type: "info",
+        title: "Score calcique déjà réalisé",
+        message:
+          "Le CACS saisi à l'étape 3 est intégré au CACS-CL : ne pas le répéter.",
+      })
+      return {
+        steps,
+        flags,
+        contraindications,
+        rationaleSummary:
+          "CACS-CL 5-15% (CACS déjà intégré) → CCTA (Classe I ESC 2024). Pas d'urgence sauf récidive.",
+      }
+    }
     steps.push({
       rank: 1,
       exam: "cacs",
       label: "Score calcique (CACS) en 1ère intention",
       delai: "Sous 4 semaines",
       rationale:
-        "Reclassification : si CACS = 0 → fermeture du bilan. Si CACS > 0 → CCTA (CACS 1-99 IIa, ≥ 100 I) ou test fonctionnel.",
-      classe: "I",
+        "Reclassification (CACS-CL) : si CACS = 0 → report des examens (VPN > 95 %). Si CACS > 0 → probabilité recalculée ; si elle reste > 5 % → CCTA ou test fonctionnel.",
+      classe: "IIa",
     })
     if (mods.ccta === "non-dispo") {
       flags.push({
         type: "warning",
         title: "Si CACS positif et CCTA non disponible",
         message:
-          "Orienter vers un test fonctionnel non invasif (sans iode si IRC sévère ou allergie) ou une consultation cardiologique.",
+          "Orienter vers un test fonctionnel non invasif (scintigraphie ou écho de stress) ou une consultation cardiologique.",
       })
     }
     return {
@@ -287,7 +372,7 @@ export function getPathwayRecommendation(
       flags,
       contraindications,
       rationaleSummary:
-        "Probabilité 5-15% → CACS de reclassification (Classe I ESC 2024). Pas d'urgence sauf récidive.",
+        "Probabilité 5-15% → CACS de reclassification (Classe IIa ESC 2024). Pas d'urgence sauf récidive.",
     }
   }
 
@@ -299,10 +384,10 @@ export function getPathwayRecommendation(
         steps.push({
           rank: 1,
           exam: fonctionnel,
-          label: fonctionnelChoix,
+          label: examLabel(fonctionnel),
           delai: "Sous 2-4 semaines",
           rationale:
-            "CCTA non interprétable (FA / calcifications / obésité) → test d'ischémie d'emblée (Classe I).",
+            "CCTA non recommandé (III, C — FA, calcifications étendues, obésité sévère ou IRC sévère) → imagerie fonctionnelle d'emblée (I, B).",
           classe: "I",
         })
       } else if (mods.ccta !== "non-dispo") {
@@ -315,38 +400,29 @@ export function getPathwayRecommendation(
               : "Coroscanner (CCTA) en différé",
           delai: delaiFromAvail(mods.ccta, "Sous 7 jours", "Sous 2-4 semaines"),
           rationale:
-            "Probabilité 15-30% : CCTA premier choix (Classe I si CACS < 400). Délai différé acceptable car risque MACE faible.",
+            "Probabilité 15-30% : CCTA, examen préféré pour exclure une CAD obstructive (I, B — ESC 2024). Délai différé acceptable car risque MACE faible. Chez le sujet âgé très calcifié, un test fonctionnel est plus adapté. Si CCTA de signification incertaine : échographie de stress ou scintigraphie myocardique (I, B).",
           classe: "I",
         })
         if (iodineCI) {
           steps.push({
             rank: 2,
-            exam: fonctionnel,
-            label: `${examLabel(fonctionnel)} (alternative sans iode)`,
+            exam: "scinti",
+            label: "Échographie de stress ou scintigraphie myocardique (sans iode)",
             delai: "Sous 2-4 semaines",
             rationale:
-              "Contre-indication au contraste iodé (IRC sévère, allergie) : test fonctionnel sans produit iodé en alternative (Classe I ESC 2024).",
+              "Si contre-indication au contraste iodé (allergie) : échographie de stress ou scintigraphie en alternative.",
             classe: "I",
           })
         }
       } else {
-        // CCTA non disponible
+        // CCTA non disponible → imagerie fonctionnelle (recommandée pour une probabilité > 15 %)
         steps.push({
           rank: 1,
-          exam: "cacs",
-          label: "Score calcique en 1ère intention",
-          delai: "Sous 7 jours",
-          rationale:
-            "CCTA non disponible : commencer par CACS pour stratification rapide en cabinet de ville.",
-          classe: "I",
-        })
-        steps.push({
-          rank: 2,
           exam: fonctionnel,
-          label: `${examLabel(fonctionnel)} (si CACS > 0)`,
+          label: examLabel(fonctionnel),
           delai: "Sous 4 semaines",
           rationale:
-            "Si CACS > 0 : test fonctionnel non-invasif pour confirmer ischémie. Coro pas indiquée d'emblée à cette probabilité.",
+            "CCTA non disponible : échographie de stress ou scintigraphie myocardique, recommandée pour une probabilité > 15 % (ESC 2024).",
           classe: "I",
         })
       }
@@ -363,26 +439,27 @@ export function getPathwayRecommendation(
       type: "warning",
       title: "Zone intermédiaire-haute (30-50%)",
       message:
-        "Risque MACE significatif → délai d'examen à raccourcir. CCTA RAPIDE en 1er choix ; à défaut, coro ambulatoire (Classe IIa ESC 2024).",
+        "Risque MACE significatif → délai d'examen à raccourcir. CCTA RAPIDE en 1er choix ; à défaut, échographie de stress ou scintigraphie myocardique. La coronarographie n'est pas un examen de 1re intention à cette probabilité.",
     })
 
     if (!cctaUsable) {
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: fonctionnelChoix,
+        label: examLabel(fonctionnel),
         delai: "Sous 7 jours",
         rationale:
-          "CCTA non interprétable (FA / calcifications massives / obésité) → test d'ischémie d'emblée (Classe I).",
+          "CCTA non recommandé (III, C — FA, calcifications étendues, obésité sévère ou IRC sévère) → imagerie fonctionnelle d'emblée (I, B).",
         classe: "I",
       })
       if (mods.ica !== "non-dispo") {
         steps.push({
           rank: 2,
           exam: "ica",
-          label: "Coronarographie ambulatoire si test positif/non concluant",
+          label: "Coronarographie si ischémie modérée à sévère ou résultat non concluant",
           delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-          rationale: "Confirmation anatomique et revascularisation si nécessaire.",
+          rationale:
+            "ESC 2024 : coronarographie indiquée si un test de stress montre une ischémie modérée à sévère, ou pour confirmer/exclure une CAD obstructive après un résultat non concluant.",
           classe: "I",
         })
       }
@@ -397,89 +474,76 @@ export function getPathwayRecommendation(
           : "Probabilité 30-50% : CCTA rapide (Classe I). Exclusion CAD + stratification du risque MACE.",
         classe: "I",
       })
+      steps.push({
+        rank: 2,
+        exam: fonctionnel,
+        label: `${examLabel(fonctionnel)} si CCTA anormal sans critère de haut risque`,
+        delai: "Sous 2-4 semaines",
+        rationale:
+          "ESC 2024 : imagerie fonctionnelle recommandée si le CCTA montre une CAD de signification fonctionnelle incertaine ou n'est pas diagnostique (I, B).",
+        classe: "I",
+      })
       if (mods.ica !== "non-dispo") {
         steps.push({
-          rank: 2,
+          rank: 3,
           exam: "ica",
-          label: "Coronarographie ambulatoire si CCTA positif (sténose ≥ 50%)",
+          label: "Coronarographie si CCTA à haut risque",
           delai: delaiFromAvail(mods.ica),
           rationale:
-            "Confirmation anatomique et revascularisation si lésion significative.",
+            "ESC 2024 : sténose du tronc commun ≥ 50 %, IVA proximale ≥ 70 % (mono/bitronculaire) ou atteinte tritronculaire ≥ 70 % → coronarographie (avec évaluation de la pression coronaire).",
           classe: "I",
+          niveau: "C",
         })
       }
     } else if (mods.ccta === "differe") {
       // CCTA disponible mais en différé
-      if (elderlyFragile && mods.ica === "rapide") {
-        steps.push({
-          rank: 1,
-          exam: "ica",
-          label: "Coronarographie ambulatoire RAPIDE (1er choix)",
-          delai: "Sous 7 jours",
-          rationale:
-            "Sujet âgé/fragile + probabilité 30-50% + CCTA différé → coro ambulatoire pertinente (Classe IIa ESC 2024). Diagnostic et revascularisation en un temps, évite la cascade d'examens.",
-          classe: "IIa",
-        })
-        steps.push({
-          rank: 2,
-          exam: "ccta",
-          label: "CCTA en différé (alternative non-invasive)",
-          delai: "Sous 2-4 semaines",
-          rationale:
-            "Si patient préfère stratégie non-invasive et stabilité clinique. Discuter avec le cardiologue.",
-          classe: "I",
-        })
-      } else {
-        steps.push({
-          rank: 1,
-          exam: "ccta",
-          label: "Coroscanner (CCTA) — au plus tôt possible",
-          delai: "Sous 2-4 semaines (à raccourcir si possible)",
-          rationale:
-            "Probabilité 30-50% : CCTA Classe I. Prévenir le radiologue de la priorité clinique pour avancer le rendez-vous.",
-          classe: "I",
-        })
-        if (mods.ica !== "non-dispo") {
-          steps.push({
-            rank: 2,
-            exam: "ica",
-            label: "Coronarographie ambulatoire (alternative)",
-            delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-            rationale:
-              "Si CCTA différé > 4 semaines ou symptômes en aggravation : coro ambulatoire (Classe IIa).",
-            classe: "IIa",
-          })
-        }
-      }
-    } else {
-      // CCTA non disponible
-      if (mods.ica !== "non-dispo") {
-        steps.push({
-          rank: 1,
-          exam: "ica",
-          label: "Coronarographie ambulatoire",
-          delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-          rationale:
-            "CCTA non disponible + probabilité 30-50% → coro ambulatoire (Classe IIa ESC 2024). Diagnostic anatomique et revascularisation.",
-          classe: "IIa",
-        })
-      }
       steps.push({
-        rank: mods.ica !== "non-dispo" ? 2 : 1,
-        exam: fonctionnel,
-        label: `${examLabel(fonctionnel)} (alternative non-invasive)`,
-        delai: "Sous 2 semaines",
+        rank: 1,
+        exam: "ccta",
+        label: "Coroscanner (CCTA) — au plus tôt possible",
+        delai: "Sous 2-4 semaines (à raccourcir si possible)",
         rationale:
-          "Test d'ischémie si patient préfère approche non-invasive ou si coro non disponible.",
+          "Probabilité 30-50% : CCTA en première intention (ESC 2024). Prévenir le radiologue de la priorité clinique pour avancer le rendez-vous.",
         classe: "I",
       })
+      steps.push({
+        rank: 2,
+        exam: fonctionnel,
+        label: `${examLabel(fonctionnel)} (si CCTA trop différé ou symptômes en aggravation)`,
+        delai: "Sous 2 semaines",
+        rationale:
+          "Imagerie fonctionnelle recommandée pour une probabilité > 15 % ; meilleur pouvoir de confirmation que le CCTA.",
+        classe: "I",
+      })
+    } else {
+      // CCTA non disponible → imagerie fonctionnelle
+      steps.push({
+        rank: 1,
+        exam: fonctionnel,
+        label: examLabel(fonctionnel),
+        delai: "Sous 2 semaines",
+        rationale:
+          "CCTA non disponible : échographie de stress ou scintigraphie myocardique, recommandée pour une probabilité > 15 % (ESC 2024).",
+        classe: "I",
+      })
+      if (mods.ica !== "non-dispo") {
+        steps.push({
+          rank: 2,
+          exam: "ica",
+          label: "Coronarographie si ischémie modérée à sévère ou résultat non concluant",
+          delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
+          rationale:
+            "ESC 2024 : coronarographie indiquée si un test de stress montre une ischémie modérée à sévère, ou après un résultat non concluant.",
+          classe: "I",
+        })
+      }
     }
 
     return {
       steps,
       flags,
       contraindications,
-      rationaleSummary: `Probabilité ${pct}% (intermédiaire-haut) → CCTA RAPIDE en 1er choix (Classe I). À défaut : coro ambulatoire (Classe IIa) ou test fonctionnel selon contexte.`,
+      rationaleSummary: `Probabilité ${pct}% (intermédiaire-haut) → CCTA RAPIDE en 1er choix (ESC 2024) ; imagerie fonctionnelle si CCTA inadapté ou indisponible. Coronarographie seulement après un examen non invasif concluant à haut risque.`,
     }
   }
 
@@ -489,46 +553,27 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: fonctionnelChoix,
+        label: examLabel(fonctionnel),
         delai: "Sous 48-72h",
         rationale:
-          "Test d'ischémie de 1ère intention (Classe I). PET privilégié si disponible (haute sensibilité) ; ni l'un ni l'autre n'emploie de contraste iodé.",
+          "Test d'ischémie de 1ère intention (I, B). TEP privilégiée si disponible (haute sensibilité) ; écho de stress en alternative.",
         classe: "I",
       })
       if (mods.ica !== "non-dispo") {
         steps.push({
           rank: 2,
           exam: "ica",
-          label: "Coronarographie si test positif ou non concluant",
+          label: "Coronarographie si ischémie modérée à sévère ou résultat non concluant",
           delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-          rationale: "Confirmation anatomique et revascularisation.",
+          rationale: "ESC 2024 : coronarographie avec évaluation fonctionnelle invasive si ischémie modérée à sévère ; recommandée (I, B) pour confirmer ou exclure le diagnostic après des examens non invasifs non concluants.",
           classe: "I",
         })
       }
-    } else if (elderlyFragile && mods.ica !== "non-dispo") {
-      steps.push({
-        rank: 1,
-        exam: "ica",
-        label: "Coronarographie ambulatoire (1ère intention)",
-        delai: delaiFromAvail(mods.ica, "Sous 48-72h", "Sous 7 jours"),
-        rationale:
-          "Sujet âgé/fragile + probabilité 50-85% → coro directe pertinente (Classe IIa ESC 2024). Diagnostic et revascularisation en un temps, évite la cascade d'examens et l'irradiation cumulée.",
-        classe: "IIa",
-      })
-      steps.push({
-        rank: 2,
-        exam: fonctionnel,
-        label: `${examLabel(fonctionnel)} (alternative)`,
-        delai: "Sous 7 jours",
-        rationale:
-          "Si comorbidités contre-indiquant la coro d'emblée ou refus du patient.",
-        classe: "I",
-      })
     } else if (young) {
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: fonctionnelChoix,
+        label: examLabel(fonctionnel),
         delai: "Sous 7 jours",
         rationale:
           "Sujet jeune (< 60 ans) : test fonctionnel d'abord pour quantifier l'ischémie et guider la décision de revascularisation (réduit le risque de coro inutile).",
@@ -538,9 +583,9 @@ export function getPathwayRecommendation(
         steps.push({
           rank: 2,
           exam: "ica",
-          label: "Coronarographie si ischémie significative",
+          label: "Coronarographie si ischémie modérée à sévère ou résultat non concluant",
           delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-          rationale: "Revascularisation guidée par la quantification de l'ischémie.",
+          rationale: "ESC 2024 : coronarographie avec évaluation fonctionnelle invasive si ischémie modérée à sévère ; recommandée (I, B) pour confirmer ou exclure le diagnostic après des examens non invasifs non concluants.",
           classe: "I",
         })
       }
@@ -548,7 +593,7 @@ export function getPathwayRecommendation(
       steps.push({
         rank: 1,
         exam: fonctionnel,
-        label: `Test fonctionnel — ${fonctionnelChoix}`,
+        label: examLabel(fonctionnel),
         delai: "Sous 7 jours",
         rationale: "Test d'ischémie en 1er choix (Classe I).",
         classe: "I",
@@ -557,9 +602,9 @@ export function getPathwayRecommendation(
         steps.push({
           rank: 2,
           exam: "ica",
-          label: "Coronarographie selon résultat",
+          label: "Coronarographie si ischémie modérée à sévère ou résultat non concluant",
           delai: delaiFromAvail(mods.ica, "Sous 7 jours", "Sous 2 semaines"),
-          rationale: "Si ischémie significative ou test non concluant.",
+          rationale: "ESC 2024 : coronarographie avec évaluation fonctionnelle invasive si ischémie modérée à sévère ; recommandée (I, B) pour confirmer ou exclure le diagnostic après des examens non invasifs non concluants.",
           classe: "I",
         })
       }
@@ -570,7 +615,7 @@ export function getPathwayRecommendation(
         type: "info",
         title: "CCTA peu pertinent à cette probabilité",
         message:
-          "Pour une probabilité ≥ 50%, le CCTA a une moindre valeur ajoutée (forte prévalence de plaques). Préférer test fonctionnel ou coro directe.",
+          "Pour une probabilité ≥ 50%, le CCTA a une moindre valeur ajoutée (forte prévalence de plaques). Préférer l'imagerie fonctionnelle.",
       })
     }
     if (mods.ica === "non-dispo") {
@@ -586,7 +631,7 @@ export function getPathwayRecommendation(
       steps,
       flags,
       contraindications,
-      rationaleSummary: `Probabilité ${pct}% (élevée) → test fonctionnel ou coro directe selon âge/comorbidités. CCTA peu pertinent ici.`,
+      rationaleSummary: `Probabilité ${pct}% (élevée) → imagerie fonctionnelle en première intention. La coronarographie d'emblée est réservée aux probabilités > 85 % avec symptômes réfractaires ou risque d'événement élevé. CCTA peu pertinent ici.`,
     }
   }
 

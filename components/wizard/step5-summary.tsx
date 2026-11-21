@@ -52,7 +52,7 @@ const DEBUT_LABELS: Record<NonNullable<Step2Data["debut"]>, string> = {
 }
 
 const RF_LABELS: Record<string, string> = {
-  tabac: "Tabagisme actif ou sevré < 3 ans",
+  tabac: "Tabagisme (actuel ou ancien fumeur)",
   diabete: "Diabète",
   dyslipidemie: "Dyslipidémie",
   hta: "HTA / traitement antihypertenseur",
@@ -74,13 +74,13 @@ const DECISION_TEXTS: Record<
     suivi: "Consultation cardiologique dans les 7 jours si symptômes récurrents ou CACS > 0.",
   },
   intermediaire: {
-    decision: "Bilan coronarien non-invasif recommandé. CCTA en premier choix si CACS < 400.",
-    examens: "CCTA (Classe I — ESC 2024). Test d'ischémie fonctionnel si CACS ≥ 400.",
+    decision: "Bilan coronarien non invasif recommandé : CCTA en premier choix (probabilité 15–50 %).",
+    examens: "CCTA. Échographie de stress ou scintigraphie myocardique si CCTA inadapté (calcifications étendues chez le sujet âgé, FA, insuffisance rénale, allergie à l'iode) ou si l'ischémie doit être documentée.",
     suivi: "Cardiologie URGENTE dans les 72h si douleur récente/aggravée. Sinon dans les 7 jours.",
   },
   elevee: {
     decision: "Maladie coronarienne obstructive probable — appel cardiologue de garde, bilan urgent.",
-    examens: "Test d'ischémie fonctionnel (scintigraphie myocardique ou échographie de stress). ECG + troponine si douleur < 24h.",
+    examens: "Échographie de stress ou scintigraphie myocardique. ECG + troponine si douleur < 24h.",
     suivi: "Consultation cardiologique dans les 24–48h. Hospitalisation si instabilité.",
   },
   "tres-elevee": {
@@ -90,11 +90,33 @@ const DECISION_TEXTS: Record<
   },
 }
 
+/** Textes de décision, ajustés si le CACS a déjà été réalisé (étape 3). */
+function getDecisionTexts(rfclData: Step3Data) {
+  const cat = rfclData.finalCategory
+  if (rfclData.modifiers.cacs === "unknown") return DECISION_TEXTS[cat]
+  const cacsLabel = CACS_LABELS[rfclData.modifiers.cacs]
+  if (cat === "tres-faible") {
+    return {
+      ...DECISION_TEXTS["tres-faible"],
+      decision: `${cacsLabel} déjà intégré (CACS-CL ≤ 5%) : pas d'exploration coronarienne complémentaire (Classe IIa). Rechercher diagnostic alternatif.`,
+    }
+  }
+  if (cat === "faible") {
+    return {
+      decision: `${cacsLabel} déjà réalisé, CACS-CL toujours 5–15% : coroscanner (CCTA) — Classe I ESC 2024.`,
+      examens: "Ordonnance CCTA (imagerie fonctionnelle de stress si CCTA non disponible ou contre-indiqué). Ne pas répéter le CACS.",
+      suivi: "Consultation cardiologique dans les 7 jours si symptômes récurrents. Sinon dans les 4 semaines.",
+    }
+  }
+  return DECISION_TEXTS[cat]
+}
+
 interface Step5Props {
   symptomData: Step2Data
   rfclData: Step3Data
   bayesianData?: BayesianWizardData | null
   onReset: () => void
+  onPrev?: () => void
 }
 
 // ── PDF print via new window ─────────────────────────────────────────────────
@@ -104,7 +126,7 @@ function buildPrintHTML(symptomData: Step2Data, rfclData: Step3Data, bayesianDat
   const timeStr = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
   const cat = rfclData.finalCategory
   const catColor = CATEGORY_COLORS[cat]
-  const decision = DECISION_TEXTS[cat]
+  const decision = getDecisionTexts(rfclData)
   const rfList = Object.entries(rfclData.rfChecked).filter(([, v]) => v).map(([k]) => RF_LABELS[k] ?? k)
 
   const modList = [
@@ -381,10 +403,10 @@ function buildPrintHTML(symptomData: Step2Data, rfclData: Step3Data, bayesianDat
 </html>`
 }
 
-export function Step5Summary({ symptomData, rfclData, bayesianData, onReset }: Step5Props) {
+export function Step5Summary({ symptomData, rfclData, bayesianData, onReset, onPrev }: Step5Props) {
   const cat = rfclData.finalCategory
   const catColor = CATEGORY_COLORS[cat]
-  const decision = DECISION_TEXTS[cat]
+  const decision = getDecisionTexts(rfclData)
   const rfList = Object.entries(rfclData.rfChecked).filter(([, v]) => v).map(([k]) => RF_LABELS[k] ?? k)
   const isUrgent = cat === "elevee" || cat === "tres-elevee"
 
@@ -600,14 +622,24 @@ export function Step5Summary({ symptomData, rfclData, bayesianData, onReset }: S
           </button>
         </div>
         
-        {/* Secondary action */}
-        <button
-          onClick={onReset}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] font-semibold text-sm hover:bg-[#f8fafc] transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Nouvelle consultation
-        </button>
+        {/* Secondary actions */}
+        <div className="flex gap-3">
+          {onPrev && (
+            <button
+              onClick={onPrev}
+              className="flex-1 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] font-semibold text-sm hover:bg-[#f8fafc] transition-colors"
+            >
+              Précédent
+            </button>
+          )}
+          <button
+            onClick={onReset}
+            className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] font-semibold text-sm hover:bg-[#f8fafc] transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Nouvelle consultation
+          </button>
+        </div>
       </div>
     </div>
   )

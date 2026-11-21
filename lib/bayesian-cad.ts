@@ -824,7 +824,7 @@ export function recommendLayer1(
       color: "#f97316",
       zone: "eleve",
       rationale:
-        "Probabilité ajustée 50–85 % : test fonctionnel (PET / IRM stress / SPECT / écho stress) privilégié pour quantifier l'ischémie et orienter la revascularisation.",
+        "Probabilité ajustée 50–85 % : échographie de stress ou scintigraphie myocardique privilégiée pour quantifier l'ischémie et orienter la revascularisation.",
       recommendedTest: "fonctionnel",
     }
   }
@@ -1183,7 +1183,7 @@ export function decideStrategy(
       label: "Coronarographie directe (probabilité ajustée > 85 %)",
       color: "#dc2626",
       rationale:
-        "Probabilité ajustée (incluant facteurs d'enrichissement, CACS et imageries préalables) supérieure à 85 % → coronarographie directe (Classe I, ESC 2024).",
+        "Probabilité ajustée (incluant facteurs d'enrichissement, CACS et imageries préalables) supérieure à 85 % → coronarographie recommandée pour le diagnostic (I, C — ESC 2024), notamment si symptômes réfractaires au traitement, angor à faible niveau d'effort et/ou risque d'événement élevé.",
       confidence,
       flags,
     }
@@ -1208,7 +1208,7 @@ export function decideStrategy(
     flags.push("Test fonctionnel privilégié — quantification de l'ischémie pour guider la revascularisation")
     return {
       decision: "fonctionnel",
-      label: "Imagerie fonctionnelle (IRM stress / PET / SPECT)",
+      label: "Échographie de stress ou scintigraphie myocardique",
       color: "#f97316",
       rationale:
         "Probabilité ajustée 50–85 % : test fonctionnel en 1ère intention (Classe I, ESC 2024). Quantifier l'ischémie pour prédire le bénéfice d'une revascularisation.",
@@ -1239,7 +1239,7 @@ export function decideStrategy(
       label: "Score calcique (CACS) en 1ère intention",
       color: "#16a34a",
       rationale:
-        "Probabilité ajustée 5–15 % : CACS recommandé pour reclassification (Classe I, ESC 2024). Si CACS = 0 → fermeture du bilan.",
+        "Probabilité ajustée 5–15 % : CACS à envisager pour reclasser en probabilité très faible (Classe IIa, B — ESC 2024). Si CACS = 0 → report des examens (VPN > 95 %).",
       confidence,
       flags,
     }
@@ -1294,7 +1294,7 @@ export interface ExpectedGain {
  */
 export function expectedDiagnosticGain(
   currentProb: number,
-  tests: TestKey[] = ["ccta", "stress-cmr", "pet", "spect", "stress-echo"],
+  tests: TestKey[] = ["ccta", "spect", "stress-echo"],
   threshold = 5,
 ): ExpectedGain[] {
   const p = clamp(currentProb / 100, 0.001, 0.999)

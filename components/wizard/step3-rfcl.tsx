@@ -63,7 +63,7 @@ const SYMPTOM_COLS: { key: SymptomType; label: string }[] = [
 ]
 
 const RISK_FACTORS = [
-  { id: "tabac", label: "Tabagisme actif ou sevré < 3 ans" },
+  { id: "tabac", label: "Tabagisme (actuel ou ancien fumeur)" },
   { id: "diabete", label: "Diabète" },
   { id: "dyslipidemie", label: "Dyslipidémie (LDL élevé ou traitement en cours)" },
   { id: "hta", label: "HTA (ou traitement antihypertenseur)" },
@@ -129,14 +129,17 @@ function applyModifiers(
   return Math.max(0, Math.min(95, Math.round(p)))
 }
 
-const CACS_OPTIONS: { value: CACSValue; label: string; desc: string }[] = [
-  { value: "unknown", label: "Non réalisé / inconnu", desc: "" },
-  { value: "zero", label: "CACS = 0", desc: "Reclassification forte vers le bas (Winther 2020)" },
-  { value: "1-9", label: "CACS 1–9", desc: "Reclassification modérée vers le bas" },
-  { value: "10-99", label: "CACS 10–99", desc: "Légère reclassification" },
-  { value: "100-399", label: "CACS 100–399", desc: "Reclassification vers le haut" },
-  { value: "400-999", label: "CACS 400–999", desc: "Reclassification forte vers le haut" },
-  { value: "1000+", label: "CACS ≥ 1000", desc: "Reclassification très forte vers le haut" },
+// Classes d'Agatston du modèle CACS-CL (Winther et al.), modèle cité par l'ESC 2024.
+// L'effet de chaque classe est calculé sur la probabilité RF-CL du patient
+// (pas de qualificatif vague : on affiche le chiffre).
+const CACS_OPTIONS: { value: CACSValue; label: string }[] = [
+  { value: "unknown", label: "Non réalisé / inconnu" },
+  { value: "zero", label: "CACS = 0" },
+  { value: "1-9", label: "CACS 1–9" },
+  { value: "10-99", label: "CACS 10–99" },
+  { value: "100-399", label: "CACS 100–399" },
+  { value: "400-999", label: "CACS 400–999" },
+  { value: "1000+", label: "CACS ≥ 1000" },
 ]
 
 interface Step3Props {
@@ -431,7 +434,17 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
 
         {/* CACS */}
         <div>
-          <p className="text-xs font-semibold text-[#475569] mb-2 uppercase tracking-wide">Score calcique coronarien (CACS) si connu</p>
+          <p className="text-xs font-semibold text-[#475569] mb-1 uppercase tracking-wide">Score calcique coronarien (CACS, Agatston) si connu</p>
+          {/* Recommandations ESC 2024 sur le CACS (selon la probabilité RF-CL) */}
+          {baseRFCL !== null && (
+            <p className="text-[11px] text-[#475569] mb-2 leading-relaxed">
+              {baseRFCL <= 5
+                ? "Probabilité très faible (≤ 5 %) : report des examens complémentaires à envisager (classe IIa, B). CACS = 0 : valeur prédictive négative > 95 % pour une CAD obstructive."
+                : baseRFCL <= 15
+                  ? "Probabilité faible (> 5–15 %) : le CACS est à envisager pour reclasser en probabilité très faible (≤ 5 %) — classe IIa, B. CACS = 0 : valeur prédictive négative > 95 %."
+                  : "Le CACS est recommandé pour reclasser les probabilités faibles (> 5–15 %) ; au-delà, il n'est pas un examen de reclassement de routine."}
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {CACS_OPTIONS.map((opt) => (
               <button
@@ -448,7 +461,15 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
                 }`}
               >
                 <span className="text-sm font-semibold text-[#1e293b] block">{opt.label}</span>
-                {opt.desc && <span className="text-xs text-[#64748b]">{opt.desc}</span>}
+                {(() => {
+                  const bin = cacsValueToBin(opt.value)
+                  if (bin === null || baseRFCL === null) return null
+                  return (
+                    <span className="text-xs text-[#64748b]">
+                      RF-CL {baseRFCL} % → CACS-CL {Math.round(computeCACSCLFromBin(baseRFCL, bin))} %
+                    </span>
+                  )
+                })()}
               </button>
             ))}
           </div>
