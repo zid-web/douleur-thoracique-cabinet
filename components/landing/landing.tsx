@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, ShieldCheck, WifiOff } from "lucide-react"
 import { Logo } from "@/components/brand/logo"
+import { ContactsBar } from "@/components/shell/contacts-bar"
 
 export function Landing() {
   return (
@@ -50,6 +51,10 @@ export function Landing() {
             Aucune donnée transmise
           </li>
         </ul>
+
+        <div className="mt-12 w-full">
+          <ContactsBar />
+        </div>
       </main>
     </div>
   )
