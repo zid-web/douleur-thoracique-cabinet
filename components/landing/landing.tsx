@@ -52,7 +52,7 @@ export function Landing() {
           </li>
         </ul>
 
-        <div className="mt-12 w-full">
+        <div className="mt-12 w-full sm:w-[min(46rem,calc(100vw-2.5rem))]">
           <ContactsBar />
         </div>
       </main>
