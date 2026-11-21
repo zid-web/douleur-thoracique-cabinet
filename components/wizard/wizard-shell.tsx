@@ -10,6 +10,7 @@ import { Step4Decision, type BayesianWizardData } from "./step4-decision"
 import { Step5Summary } from "./step5-summary"
 import { Step3Asymptomatic } from "./step3-asymptomatic"
 import { useWizardHistory } from "@/hooks/use-wizard-history"
+import { ContactsBar } from "@/components/shell/contacts-bar"
 
 const STEPS = [
   { id: 1, title: "Triage immédiat", short: "Triage" },
@@ -114,6 +115,11 @@ export function WizardShell() {
             <span className="text-xs text-[#94a3b8] font-medium">
               Étape {currentStep} / {steps.length}
             </span>
+          </div>
+
+          {/* Numéros utiles, accessibles à chaque étape */}
+          <div className="mb-3">
+            <ContactsBar variant="compact" />
           </div>
 
           {/* Progress bar */}
