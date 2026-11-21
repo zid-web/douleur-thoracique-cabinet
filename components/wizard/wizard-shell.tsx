@@ -16,7 +16,8 @@ const STEPS = [
   { id: 2, title: "Caractérisation", short: "Symptômes" },
   { id: 3, title: "Calcul RF-CL", short: "RF-CL" },
   { id: 4, title: "Stratification", short: "Décision" },
-  { id: 5, title: "Résumé", short: "Résumé" },
+  { id: 5, title: "Probabilité post-test", short: "Post-test" },
+  { id: 6, title: "Résumé", short: "Résumé" },
 ]
 
 type WizardState = {
@@ -60,7 +61,8 @@ export function WizardShell() {
     2: "Classification symptomatique de la douleur",
     3: "Calcul de la probabilité pré-test — Modèle RF-CL (Winther / ESC 2024)",
     4: "Stratification et prise en charge",
-    5: "Fiche de consultation — Résumé clinique",
+    5: "Probabilité post-test, consultation cardiologique et ordonnance",
+    6: "Fiche de consultation — Résumé clinique",
   }
 
   const stepSubtitles: Record<number, string> = {
@@ -68,7 +70,8 @@ export function WizardShell() {
     2: "Selon la classification ESC 2024 — remplace la terminologie 'typique/atypique'",
     3: "Score calculé à partir du sexe, de l'âge, des symptômes et des facteurs de risque",
     4: "Décision clinique basée sur le RF-CL ajusté final",
-    5: "Fiche récapitulative imprimable",
+    5: "Probabilité mise à jour selon les examens réalisés (Knuuti 2018 — ESC 2024)",
+    6: "Fiche récapitulative imprimable",
   }
 
   const currentStep = state.step
@@ -240,12 +243,16 @@ export function WizardShell() {
         )}
 
         {state.rfclData && state.symptomData && (
-          <div hidden={currentStep !== 4}>
+          <div hidden={currentStep !== 4 && currentStep !== 5}>
+          {/* Un seul composant pour les étapes 4 (décision) et 5 (post-test) :
+              les examens saisis et les réglages restent partagés. */}
           <Step4Decision
             rfclData={state.rfclData}
             symptomType={state.symptomData.symptomType}
+            view={currentStep === 5 ? "posttest" : "decision"}
             onPrev={back}
             onNext={() => push(5)}
+            onNextSummary={() => push(6)}
             onBayesianChange={(data) =>
               setState((s) => ({ ...s, bayesianData: data }))
             }
@@ -256,7 +263,7 @@ export function WizardShell() {
           </div>
         )}
 
-        {currentStep === 5 && state.symptomData && state.rfclData && (
+        {currentStep === 6 && state.symptomData && state.rfclData && (
           <Step5Summary
             symptomData={state.symptomData}
             rfclData={state.rfclData}

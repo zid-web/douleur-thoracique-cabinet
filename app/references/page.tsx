@@ -57,10 +57,10 @@ export default function ReferencesPage() {
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-6 pb-16">
         <Section icon={<Calculator className="h-4 w-4" />} title="Ce que l'application calcule">
           <p>
-            Le parcours enchaîne cinq étapes : triage des situations nécessitant une prise en charge immédiate,
+            Le parcours enchaîne six étapes : triage des situations nécessitant une prise en charge immédiate,
             classification symptomatique, probabilité clinique <strong>RF-CL</strong>, pondération par le score
-            calcique <strong>CACS-CL</strong> et modificateurs cliniques, puis mise à jour bayésienne séquentielle
-            selon les tests non invasifs réalisés.
+            calcique <strong>CACS-CL</strong> et modificateurs cliniques, examen recommandé, mise à jour bayésienne
+            séquentielle selon les tests non invasifs réalisés, puis fiche de synthèse.
           </p>
           <p>
             Les moteurs de calcul sont repris à l&apos;identique de l&apos;application CoroPath d&apos;origine :

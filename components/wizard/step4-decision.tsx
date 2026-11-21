@@ -99,6 +99,15 @@ interface Step4Props {
   onBayesianChange?: (data: BayesianWizardData | null) => void
   /** Saisie du résultat du score calcique : le parcours recalcule la probabilité. */
   onCacsResult?: (cacs: CACSValue) => void
+  /**
+   * Vue affichée : « decision » (étape 4 : catégorie, examen recommandé, score
+   * calcique) ou « posttest » (étape 5 : probabilité post-test, consultation et
+   * ordonnance). Un seul composant pour les deux étapes, afin que les examens
+   * saisis et les réglages restent partagés.
+   */
+  view?: "decision" | "posttest"
+  /** Passage direct à la fiche de synthèse (étape 6). */
+  onNextSummary?: () => void
 }
 
 const CATEGORY_CONFIG = {
@@ -109,7 +118,17 @@ const CATEGORY_CONFIG = {
   "tres-elevee": { label: "TRÈS ÉLEVÉE / SCA PROBABLE", range: "> 85%", color: "#991b1b", bg: "#fef2f2", border: "#dc2626", dots: 5, risk: "" },
 }
 
-export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesianChange, onCacsResult }: Step4Props) {
+export function Step4Decision({
+  rfclData,
+  symptomType,
+  onNext,
+  onPrev,
+  onBayesianChange,
+  onCacsResult,
+  view = "decision",
+  onNextSummary,
+}: Step4Props) {
+  const toSummary = onNextSummary ?? onNext
   const cat = rfclData.finalCategory
   const cfg = CATEGORY_CONFIG[cat]
   const pct = rfclData.adjustedRFCL
@@ -247,6 +266,8 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
 
   return (
     <div className="space-y-5">
+      {/* ── Étape 4 : décision ─────────────────────────────────────────── */}
+      <div hidden={view !== "decision"} className="space-y-5">
       {/* Category header */}
       <div
         className="rounded-xl border-2 p-4"
@@ -297,6 +318,36 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
         <CacsResultPanel rfclData={rfclData} onChange={onCacsResult} firstStep={recommendation.steps[0]} />
       )}
 
+      {cat === "tres-elevee" && <CategoryTresElevee />}
+
+      {/* Nav étape 4 */}
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onPrev}
+          className="flex-1 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] transition-colors"
+        >
+          Précédent
+        </button>
+        {cat === "tres-elevee" ? (
+          <button
+            onClick={toSummary}
+            className="flex-[2] py-3 rounded-xl bg-[#991b1b] text-white font-semibold text-sm hover:bg-[#7f1d1d] transition-colors"
+          >
+            Générer la fiche d&apos;urgence
+          </button>
+        ) : (
+          <button
+            onClick={onNext}
+            className="flex-[2] py-3 rounded-xl bg-[#1e293b] text-white font-semibold text-sm hover:bg-[#334155] transition-colors"
+          >
+            Suivant — Probabilité post-test
+          </button>
+        )}
+      </div>
+      </div>
+
+      {/* ── Étape 5 : probabilité post-test, consultation, ordonnance ──── */}
+      <div hidden={view !== "posttest"} className="space-y-5">
       {/* Modèle bayésien continu — probabilité post-test + décision finale (4 voies ESC 2024) */}
       <PostTestProbabilityModule
         preTestProb={pct}
@@ -325,41 +376,22 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
         />
       )}
 
-      {cat === "tres-elevee" && <CategoryTresElevee />}
-
-      {/* Nav */}
-      {cat !== "tres-elevee" && (
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={onPrev}
-            className="flex-1 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] transition-colors"
-          >
-            Précédent
-          </button>
-          <button
-            onClick={onNext}
-            className="flex-[2] py-3 rounded-xl bg-[#1e293b] text-white font-semibold text-sm hover:bg-[#334155] transition-colors"
-          >
-            Suivant — Résumé & Impression
-          </button>
-        </div>
-      )}
-      {cat === "tres-elevee" && (
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={onPrev}
-            className="flex-1 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] transition-colors"
-          >
-            Précédent
-          </button>
-          <button
-            onClick={onNext}
-            className="flex-[2] py-3 rounded-xl bg-[#991b1b] text-white font-semibold text-sm hover:bg-[#7f1d1d] transition-colors"
-          >
-            Générer la fiche d'urgence
-          </button>
-        </div>
-      )}
+      {/* Nav étape 5 */}
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onPrev}
+          className="flex-1 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] transition-colors"
+        >
+          Précédent
+        </button>
+        <button
+          onClick={toSummary}
+          className="flex-[2] py-3 rounded-xl bg-[#1e293b] text-white font-semibold text-sm hover:bg-[#334155] transition-colors"
+        >
+          Suivant — Résumé & Impression
+        </button>
+      </div>
+      </div>
     </div>
   )
 }

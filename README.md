@@ -10,16 +10,17 @@ module, empaquetée comme application indépendante.
 
 ## Ce que contient l'application
 
-Un parcours en cinq étapes, entièrement côté client :
+Un parcours en six étapes, entièrement côté client :
 
 1. **Triage** — critères d'alerte imposant une prise en charge immédiate (ESC 2023).
 2. **Caractérisation** — classification symptomatique en trois composantes (ESC 2024).
 3. **RF-CL** — probabilité pré-test selon la table Winther 2020, puis pondération par les
    modificateurs cliniques et par le score calcique via la formule **CACS-CL**.
-4. **Stratification** — conduite à tenir, sélection des examens et mise à jour bayésienne
-   séquentielle de la probabilité en fonction des tests réalisés (rapports de vraisemblance
-   Knuuti 2018).
-5. **Résumé** — fiche de consultation imprimable ou exportable.
+4. **Stratification** — catégorie de probabilité, conduite à tenir et examen recommandé
+   (avec saisie du résultat du score calcique quand c'est l'examen recommandé).
+5. **Probabilité post-test** — mise à jour bayésienne séquentielle selon les tests réalisés
+   (rapports de vraisemblance Knuuti 2018), consultation cardiologique et ordonnance.
+6. **Résumé** — fiche de consultation imprimable ou exportable.
 
 Un patient **asymptomatique** sort du RF-CL à l'étape 3 et bascule vers la prévention
 (SCORE2), comme dans CoroPath.
