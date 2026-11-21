@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import type { SymptomType, Step2Data } from "./step2-symptoms"
 import { computeCACSCLFromBin, type CACSBin } from "@/lib/cacs-cl"
 import { AnocaIndicativePanel } from "./anoca-panel"
@@ -25,6 +25,8 @@ export interface Step3Data {
     cacs: CACSValue
   }
   adjustedRFCL: number
+  /** Probabilité ajustée non arrondie : la catégorie en dépend (seuils stricts). */
+  adjustedRFCLExact: number
   finalCategory: "tres-faible" | "faible" | "intermediaire" | "elevee" | "tres-elevee"
 }
 
@@ -76,7 +78,7 @@ function getRFCategory(count: number): RFCategory {
   return "4-5"
 }
 
-function getFinalCategory(pct: number): Step3Data["finalCategory"] {
+export function getFinalCategory(pct: number): Step3Data["finalCategory"] {
   if (pct <= 5) return "tres-faible"
   if (pct <= 15) return "faible"
   if (pct <= 50) return "intermediaire"
@@ -84,8 +86,13 @@ function getFinalCategory(pct: number): Step3Data["finalCategory"] {
   return "tres-elevee"
 }
 
+/** Pourcentage à une décimale, virgule française (5,5). */
+export function formatPct(p: number): string {
+  return (Math.round(p * 10) / 10).toLocaleString("fr-FR", { maximumFractionDigits: 1 })
+}
+
 /** Map CACSValue (UI) → CACSBin (modèle Winther 2020). */
-function cacsValueToBin(v: CACSValue): CACSBin | null {
+export function cacsValueToBin(v: CACSValue): CACSBin | null {
   switch (v) {
     case "zero":
       return "0"
@@ -113,7 +120,7 @@ function cacsValueToBin(v: CACSValue): CACSBin | null {
  *      ECG ischémique, dysfonction VG) qui ne sont pas dans le modèle
  *      original mais sont des reclassifieurs cliniques recommandés.
  */
-function applyModifiers(
+export function applyModifiersExact(
   base: number,
   mods: Step3Data["modifiers"]
 ): number {
@@ -126,7 +133,24 @@ function applyModifiers(
   if (mods.ecgIschemique) p = Math.min(95, p + 10)
   if (mods.dvgFEVG) p = Math.min(95, p + 10)
 
-  return Math.max(0, Math.min(95, Math.round(p)))
+  return Math.max(0, Math.min(95, p))
+}
+
+/**
+ * Recalcule la probabilité et la catégorie après saisie (ou modification) du
+ * score calcique, sans toucher aux autres données de l'étape 3. La catégorie
+ * est fixée sur la valeur non arrondie : 5,3 % reste « faible » (> 5 %).
+ */
+export function recomputeWithCacs(data: Step3Data, cacs: CACSValue): Step3Data {
+  const modifiers = { ...data.modifiers, cacs }
+  const exact = applyModifiersExact(data.baseRFCL, modifiers)
+  return {
+    ...data,
+    modifiers,
+    adjustedRFCLExact: exact,
+    adjustedRFCL: Math.round(exact),
+    finalCategory: getFinalCategory(exact),
+  }
 }
 
 // Classes d'Agatston du modèle CACS-CL (Winther et al.), modèle cité par l'ESC 2024.
@@ -148,9 +172,11 @@ interface Step3Props {
   onPrev?: () => void
   /** Mode autonome : permet de choisir le type de douleur dans le composant. */
   standalone?: boolean
+  /** Score calcique saisi plus loin dans le parcours (étape 4) : on le reprend ici. */
+  cacsFromLaterStep?: CACSValue
 }
 
-export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: Step3Props) {
+export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false, cacsFromLaterStep }: Step3Props) {
   const [sex, setSex] = useState<Sex>("homme")
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [rfChecked, setRfChecked] = useState<Record<string, boolean>>({})
@@ -161,6 +187,13 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
     dvgFEVG: false,
     cacs: "unknown",
   })
+
+  // Le résultat du CACS peut être saisi à l'étape 4 : on aligne la saisie de
+  // l'étape 3 pour qu'un retour en arrière ne l'efface pas.
+  useEffect(() => {
+    if (cacsFromLaterStep === undefined) return
+    setModifiers((prev) => (prev.cacs === cacsFromLaterStep ? prev : { ...prev, cacs: cacsFromLaterStep }))
+  }, [cacsFromLaterStep])
 
   const symptomType: SymptomType = symptomData
     ? (symptomData.symptomType === "non-coronarien" ? "non-coronarien" : symptomData.symptomType)
@@ -175,18 +208,19 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
     return RFCL_TABLE[sex][ageRange][rfCategory][st as keyof (typeof RFCL_TABLE)["homme"]["30-39"]["0-1"]]
   }, [sex, ageRange, rfCategory, symptomType])
 
-  const adjustedRFCL = useMemo(() => {
+  const adjustedRFCLExact = useMemo(() => {
     if (baseRFCL === null) return null
-    return applyModifiers(baseRFCL, modifiers)
+    return applyModifiersExact(baseRFCL, modifiers)
   }, [baseRFCL, modifiers])
+  const adjustedRFCL = adjustedRFCLExact !== null ? Math.round(adjustedRFCLExact) : null
 
-  const finalCategory = adjustedRFCL !== null ? getFinalCategory(adjustedRFCL) : null
+  const finalCategory = adjustedRFCLExact !== null ? getFinalCategory(adjustedRFCLExact) : null
   const cacsBin = useMemo(() => cacsValueToBin(modifiers.cacs), [modifiers.cacs])
 
   const canProceed = ageRange !== null && adjustedRFCL !== null
 
   const handleNext = () => {
-    if (!ageRange || adjustedRFCL === null || baseRFCL === null || !finalCategory || !onNext) return
+    if (!ageRange || adjustedRFCL === null || adjustedRFCLExact === null || baseRFCL === null || !finalCategory || !onNext) return
     onNext({
       sex,
       ageRange,
@@ -196,6 +230,7 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
       baseRFCL,
       modifiers,
       adjustedRFCL,
+      adjustedRFCLExact,
       finalCategory,
     })
   }
@@ -466,7 +501,7 @@ export function Step3RFCL({ symptomData, onNext, onPrev, standalone = false }: S
                   if (bin === null || baseRFCL === null) return null
                   return (
                     <span className="text-xs text-[#64748b]">
-                      RF-CL {baseRFCL} % → CACS-CL {Math.round(computeCACSCLFromBin(baseRFCL, bin))} %
+                      RF-CL {baseRFCL} % → CACS-CL {formatPct(computeCACSCLFromBin(baseRFCL, bin))} %
                     </span>
                   )
                 })()}
