@@ -17,19 +17,6 @@
       ]
     },
     {
-      "source": "/sw-retire.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        }
-      ]
-    },
-    {
       "source": "/manifest.webmanifest",
       "headers": [
         {
@@ -59,18 +46,6 @@
       ],
       "destination": "https://filiere-angor-cardiomaine.vercel.app/:path",
       "permanent": true
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/sw.js",
-      "has": [
-        {
-          "type": "host",
-          "value": "douleur-thoracique-cabinet.vercel.app"
-        }
-      ],
-      "destination": "/sw-retire.js"
     }
   ]
 }

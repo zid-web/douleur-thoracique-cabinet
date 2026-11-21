@@ -19,7 +19,37 @@ const PRECACHE_URLS = __PRECACHE_MANIFEST__
 const NAVIGATION_FALLBACK = "/"
 const NETWORK_TIMEOUT_MS = 3000
 
+/**
+ * Ancienne adresse du site : elle redirige vers la nouvelle (vercel.json),
+ * sauf /sw.js. Les navigateurs et applications installées depuis cette adresse
+ * y récupèrent ce fichier, qui s'y comporte alors en service worker de
+ * retrait : il vide les caches, se désinscrit et renvoie chaque onglet ouvert
+ * vers la même page sur la nouvelle adresse. Sans cela, l'ancien service
+ * worker continuerait à servir les pages en cache sans jamais voir la
+ * redirection.
+ */
+const RETIRED_HOST = "douleur-thoracique-cabinet.vercel.app"
+const NEW_ORIGIN = "https://filiere-angor-cardiomaine.vercel.app"
+const RETIRED = self.location.hostname === RETIRED_HOST
+
+async function retire() {
+  const keys = await caches.keys()
+  await Promise.all(keys.map((key) => caches.delete(key)))
+  await self.registration.unregister()
+  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+  await Promise.all(
+    windows.map((client) => {
+      const url = new URL(client.url)
+      return client.navigate(NEW_ORIGIN + url.pathname + url.search + url.hash).catch(() => {})
+    }),
+  )
+}
+
 self.addEventListener("install", (event) => {
+  if (RETIRED) {
+    self.skipWaiting()
+    return
+  }
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME)
@@ -40,6 +70,10 @@ self.addEventListener("install", (event) => {
 })
 
 self.addEventListener("activate", (event) => {
+  if (RETIRED) {
+    event.waitUntil(retire())
+    return
+  }
   event.waitUntil(
     (async () => {
       const keys = await caches.keys()
@@ -56,6 +90,7 @@ self.addEventListener("message", (event) => {
 })
 
 self.addEventListener("fetch", (event) => {
+  if (RETIRED) return
   const request = event.request
   if (request.method !== "GET") return
 
