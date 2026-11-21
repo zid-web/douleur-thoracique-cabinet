@@ -5,7 +5,7 @@ import Link from "next/link"
 import { BookOpen, ChevronLeft } from "lucide-react"
 import { Step1Triage } from "./step1-triage"
 import { Step2Symptoms, type Step2Data } from "./step2-symptoms"
-import { Step3RFCL, type Step3Data } from "./step3-rfcl"
+import { Step3RFCL, recomputeWithCacs, type Step3Data } from "./step3-rfcl"
 import { Step4Decision, type BayesianWizardData } from "./step4-decision"
 import { Step5Summary } from "./step5-summary"
 import { Step3Asymptomatic } from "./step3-asymptomatic"
@@ -228,6 +228,7 @@ export function WizardShell() {
           <div hidden={currentStep !== 3 || asymptomatic}>
           <Step3RFCL
             symptomData={state.symptomData}
+            cacsFromLaterStep={state.rfclData?.modifiers.cacs}
             onPrev={back}
             onNext={(data) => {
               setState((s) => ({ ...s, rfclData: data }))
@@ -246,6 +247,9 @@ export function WizardShell() {
             onNext={() => push(5)}
             onBayesianChange={(data) =>
               setState((s) => ({ ...s, bayesianData: data }))
+            }
+            onCacsResult={(cacs) =>
+              setState((s) => (s.rfclData ? { ...s, rfclData: recomputeWithCacs(s.rfclData, cacs) } : s))
             }
           />
           </div>

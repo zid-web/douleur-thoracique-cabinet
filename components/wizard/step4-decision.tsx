@@ -21,7 +21,8 @@ import {
   Brain,
   Ban,
 } from "lucide-react"
-import type { Step3Data } from "./step3-rfcl"
+import { applyModifiersExact, getFinalCategory, type CACSValue, type Step3Data } from "./step3-rfcl"
+import { CacsResultPanel } from "./cacs-result-panel"
 import type { SymptomType } from "./step2-symptoms"
 import { AnocaIndicativePanel } from "./anoca-panel"
 import {
@@ -96,6 +97,8 @@ interface Step4Props {
   onNext: () => void
   onPrev: () => void
   onBayesianChange?: (data: BayesianWizardData | null) => void
+  /** Saisie du résultat du score calcique : le parcours recalcule la probabilité. */
+  onCacsResult?: (cacs: CACSValue) => void
 }
 
 const CATEGORY_CONFIG = {
@@ -106,7 +109,7 @@ const CATEGORY_CONFIG = {
   "tres-elevee": { label: "TRÈS ÉLEVÉE / SCA PROBABLE", range: "> 85%", color: "#991b1b", bg: "#fef2f2", border: "#dc2626", dots: 5, risk: "" },
 }
 
-export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesianChange }: Step4Props) {
+export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesianChange, onCacsResult }: Step4Props) {
   const cat = rfclData.finalCategory
   const cfg = CATEGORY_CONFIG[cat]
   const pct = rfclData.adjustedRFCL
@@ -127,6 +130,10 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
   const [bayesianEvents, setBayesianEvents] = useState<UITestEvent[]>([])
 
   const supportsModifiers = cat === "intermediaire" || cat === "elevee"
+  // Catégorie avant score calcique : c'est elle qui fait proposer le CACS.
+  const preCacsCategory = getFinalCategory(
+    applyModifiersExact(rfclData.baseRFCL, { ...rfclData.modifiers, cacs: "unknown" }),
+  )
   const recommendation = useMemo(
     () => getPathwayRecommendation(cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs),
     [cat, rfclData.ageRange, pct, mods, rfclData.modifiers.cacs],
@@ -258,6 +265,12 @@ export function Step4Decision({ rfclData, symptomType, onNext, onPrev, onBayesia
           <div className="text-3xl font-black" style={{ color: cfg.color }}>{pct}%</div>
         </div>
       </div>
+
+      {/* Résultat du score calcique — proposé quand la probabilité avant CACS est
+          faible (> 5–15 %), c'est-à-dire quand le CACS est l'examen recommandé. */}
+      {onCacsResult && preCacsCategory === "faible" && (
+        <CacsResultPanel rfclData={rfclData} onChange={onCacsResult} firstStep={recommendation.steps[0]} />
+      )}
 
       {/* Modifier panel — uniquement pour intermédiaire et élevée */}
       {supportsModifiers && (
